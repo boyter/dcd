@@ -1,18 +1,53 @@
 # github.com/boyter/cs v0.0.0-20200920232754-fe1446ddf495
 ## explicit
+github.com/boyter/cs/file
+github.com/boyter/cs/processor/go-gitignore
+# github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0
+## explicit
+github.com/boyter/scc/processor
+github.com/boyter/scc/processor/gitignore
+# github.com/dbaggerman/cuba v0.3.2
+github.com/dbaggerman/cuba
 # github.com/fatih/color v1.9.0
 ## explicit
 # github.com/gdamore/tcell v1.4.0
 ## explicit
+# github.com/json-iterator/go v1.1.9
+github.com/json-iterator/go
 # github.com/mattn/go-isatty v0.0.12
 ## explicit
+# github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1
+github.com/minio/blake2b-simd
+# github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+github.com/modern-go/concurrent
+# github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
+github.com/modern-go/reflect2
 # github.com/rivo/tview v0.0.0-20200915114512-42866ecf6ca6
 ## explicit
 # github.com/rs/zerolog v1.20.0
 ## explicit
+github.com/rs/zerolog
+github.com/rs/zerolog/internal/cbor
+github.com/rs/zerolog/internal/json
+github.com/rs/zerolog/log
 # github.com/spf13/cobra v1.0.0
 ## explicit
 # github.com/src-d/go-oniguruma v1.1.0
 ## explicit
+# golang.org/x/text v0.3.2
+golang.org/x/text/feature/plural
+golang.org/x/text/internal
+golang.org/x/text/internal/catmsg
+golang.org/x/text/internal/format
+golang.org/x/text/internal/language
+golang.org/x/text/internal/language/compact
+golang.org/x/text/internal/number
+golang.org/x/text/internal/stringset
+golang.org/x/text/internal/tag
+golang.org/x/text/language
+golang.org/x/text/message
+golang.org/x/text/message/catalog
 # gopkg.in/src-d/enry.v1 v1.7.3
 ## explicit
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
