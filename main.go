@@ -16,13 +16,19 @@ func process() {
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
+	fileWalker.
 	go fileWalker.Start()
 
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
-		fi, err := os.Stat(f.Location)
+		fi, err := os.Lstat(f.Location)
 		if err != nil {
 			return
+		}
+
+		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+			fmt.Println(fmt.Sprintf("skipping symlink file: %s", f.Location))
+			continue
 		}
 
 		content := readFileContent(fi, err, f)
@@ -68,7 +74,7 @@ func process() {
 			continue
 		}
 
-		fmt.Println(f.Filename, len(content))
+		fmt.Println(f.Location, len(content))
 	}
 }
 
