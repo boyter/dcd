@@ -9,17 +9,26 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
+	"unicode"
 )
 
-func process() []file.File {
+type duplicateFile struct {
+	Filename string
+	Location string
+	Content []byte
+	Lines []string
+}
+
+func process() map[string][]duplicateFile {
 	// Now we need to run through every file closed by the filewalker when done
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
 	go fileWalker.Start()
 
-	var files []file.File
+	extensionFileMap := map[string][]duplicateFile{}
 
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
@@ -75,12 +84,37 @@ func process() []file.File {
 			continue
 		}
 
+		// condense the lines
+		lines := strings.Split(string(content), "\n")
+		for i:=0; i<len(lines); i++ {
+			lines[i] = spaceMap(lines[i])
+		}
+		// now we should loop through and remove the comments, which means hooking into scc's language stuff
+
 		// at this point we have a candidate file to work with :)
 
-		fmt.Println(f.Location, len(content))
+		ext := file.GetExtension(f.Filename)
+
+		_, ok := extensionFileMap[ext]
+		if ok {
+			extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
+				Filename: f.Filename,
+				Location: f.Location,
+				Content:  content,
+				Lines: lines,
+			})
+		} else {
+			t := append([]duplicateFile{}, duplicateFile{Filename: f.Filename,
+				Location: f.Location,
+				Content:  content,
+				Lines: lines})
+			extensionFileMap[ext] = t
+		}
+
+
 	}
 
-	return files
+	return extensionFileMap
 }
 
 func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
@@ -108,15 +142,63 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 	return content
 }
 
+func spaceMap(str string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, str)
+}
+
 
 func main() {
 	rand.Seed(time.Now().Unix())
 
 	// Required to load the language information and need only be done once
 	processor.ProcessConstants()
-	files := process()
+	extensionFileMap := process()
 
-	fmt.Println(files)
+	for key, files := range extensionFileMap {
+		fmt.Println(key)
+
+		// Loop the files in total
+		for i := 0; i < len(files); i++ {
+			fmt.Println(files[i].Location)
+
+			// Loop against surrounding files
+			for j := i; j < len(files); j++ {
+				//don't compare to itself this way, if the same file we need to instead
+				// compare but only lines which are not the same
+				if i != j {
+
+					var sb strings.Builder
+					// at this point loop this files lines, looking for matching lines in the other file
+
+					for _, line := range files[i].Lines {
+						for _, line2 := range files[j].Lines {
+							if line == line2 {
+								sb.WriteString("1")
+							} else {
+								sb.WriteString("0")
+							}
+						}
+						sb.WriteString("\n")
+					}
+
+					_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
+# Matches...
+%d %d
+%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
+
+				}
+			}
+			
+		}
+
+	}
+
+
 
 	t := str.IndexAllIgnoreCase("", "", -1)
 	fmt.Println(t)
