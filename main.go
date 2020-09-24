@@ -3,7 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/boyter/cs/file"
+	"github.com/boyter/go-code-walker"
+	"github.com/boyter/go-str"
 	"github.com/boyter/scc/processor"
 	"io/ioutil"
 	"math/rand"
@@ -16,7 +17,6 @@ func process() {
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
-	fileWalker.
 	go fileWalker.Start()
 
 	for f := range fileListQueue {
@@ -110,4 +110,7 @@ func main() {
 	// Required to load the language information and need only be done once
 	processor.ProcessConstants()
 	process()
+
+	t := str.IndexAllIgnoreCase("", "", -1)
+	fmt.Println(t)
 }

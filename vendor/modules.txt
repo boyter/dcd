@@ -1,7 +1,10 @@
-# github.com/boyter/cs v0.0.0-20200920232754-fe1446ddf495
+# github.com/boyter/go-code-walker v1.0.0
 ## explicit
-github.com/boyter/cs/file
-github.com/boyter/cs/processor/go-gitignore
+github.com/boyter/go-code-walker
+github.com/boyter/go-code-walker/go-gitignore
+# github.com/boyter/go-str v1.0.1
+## explicit
+github.com/boyter/go-str
 # github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0
 ## explicit
 github.com/boyter/scc/processor
@@ -26,10 +29,6 @@ github.com/modern-go/reflect2
 ## explicit
 # github.com/rs/zerolog v1.20.0
 ## explicit
-github.com/rs/zerolog
-github.com/rs/zerolog/internal/cbor
-github.com/rs/zerolog/internal/json
-github.com/rs/zerolog/log
 # github.com/spf13/cobra v1.0.0
 ## explicit
 # github.com/src-d/go-oniguruma v1.1.0
