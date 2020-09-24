@@ -12,18 +12,21 @@ import (
 	"time"
 )
 
-func process() {
+func process() []file.File {
 	// Now we need to run through every file closed by the filewalker when done
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
 	go fileWalker.Start()
 
+	var files []file.File
+
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
 		fi, err := os.Lstat(f.Location)
 		if err != nil {
-			return
+			fmt.Println(fmt.Sprintf("error %s", err.Error()))
+			continue
 		}
 
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -35,9 +38,7 @@ func process() {
 
 		// if there is nothing in the file lets not bother indexing it because its not searchable either
 		if len(content) == 0 {
-			if len(os.Args) != 1 {
-				fmt.Println(fmt.Sprintf("empty file so moving on %s", f.Location))
-			}
+			fmt.Println(fmt.Sprintf("empty file so moving on %s", f.Location))
 			continue
 		}
 
@@ -74,8 +75,12 @@ func process() {
 			continue
 		}
 
+		// at this point we have a candidate file to work with :)
+
 		fmt.Println(f.Location, len(content))
 	}
+
+	return files
 }
 
 func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
@@ -109,7 +114,9 @@ func main() {
 
 	// Required to load the language information and need only be done once
 	processor.ProcessConstants()
-	process()
+	files := process()
+
+	fmt.Println(files)
 
 	t := str.IndexAllIgnoreCase("", "", -1)
 	fmt.Println(t)
