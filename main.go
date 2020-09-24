@@ -224,11 +224,9 @@ func identifyDuplicates(outer [][]bool) {
 	for i := 0; i< len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
 			if outer[i][j] {
-				//fmt.Println("from", i, j)
 				count := 1
 				for k := 1; k < len(outer); k++ {
-					if outer[i+k][j+k] {
-						//fmt.Println(i+k, j+k)
+					if (i+k < len(outer) && j+k < len(outer[i])) && outer[i+k][j+k] {
 						count++
 					} else {
 						// if its not a match anymore, break
