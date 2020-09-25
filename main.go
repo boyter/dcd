@@ -197,10 +197,10 @@ func main() {
 					// now we need to check if there are any duplicates in there....
 					identifyDuplicates(outer)
 
-					_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
-					# Matches...
-					%d %d
-					%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
+					//_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
+					//# Matches...
+					//%d %d
+					//%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
 
 				}
 			}
