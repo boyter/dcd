@@ -164,13 +164,15 @@ func main() {
 
 		// Loop all of the files for this extension
 		for i := 0; i < len(files); i++ {
-			fmt.Println(files[i].Location)
+			fmt.Println("Comparing", files[i].Location)
 
 			// Loop against surrounding files
 			for j := i; j < len(files); j++ {
 				// don't compare to itself this way, if the same file we need to instead
 				// compare but only lines which are not the same
 				if i != j {
+
+					fmt.Println("Comparing to", files[j].Location)
 
 					var sb strings.Builder
 					// at this point loop this files lines, looking for matching lines in the other file
@@ -221,6 +223,9 @@ func main() {
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
 func identifyDuplicates(outer [][]bool) {
+
+	endings := map[int][]int{}
+
 	for i := 0; i< len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
 			if outer[i][j] {
@@ -231,7 +236,25 @@ func identifyDuplicates(outer [][]bool) {
 					} else {
 						// if its not a match anymore, break
 						if count >= 5 {
-							fmt.Println("from", i, j, "to", i+k, j+k, "length", count)
+
+							// check if the end is already in cos if so we can ignore its not as long
+
+							include := true
+							_, ok := endings[i+k]
+							if ok {
+								// check to see if in the list
+								for _, p := range endings[i+k] {
+									if p == j+k {
+										include = false
+									}
+								}
+							}
+
+							// we need to also add the last one as being found as this should be the longest string
+							if include {
+								endings[i+k] = append(endings[i+k], j+k)
+								fmt.Println("file 1 from", i, "to", i+k, "file 2 from", j, "to", j+k, "length", count)
+							}
 						}
 						break
 					}
