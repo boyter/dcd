@@ -41,3 +41,8 @@ z
 3    X
 
 
+options needed
+
+1 filter by extension
+2 filter out matches of the first x lines
+3 filter 
