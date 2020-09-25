@@ -135,7 +135,6 @@ func selectFiles() map[string][]duplicateFile {
 		// now we should loop through and remove the comments, which means hooking into scc's language stuff
 
 		// at this point we have a candidate file to work with :)
-
 		ext := file.GetExtension(f.Filename)
 
 		_, ok := extensionFileMap[ext]

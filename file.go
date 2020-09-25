@@ -32,8 +32,3 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 }
 
 
-type duplicateFile struct {
-	Filename string
-	Location string
-	Lines []string
-}
