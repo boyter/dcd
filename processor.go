@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	file "github.com/boyter/go-code-walker"
-	"github.com/boyter/go-str"
 	"os"
 	"strings"
 )
@@ -14,12 +13,12 @@ func process() {
 	//processor.ProcessConstants()
 	extensionFileMap := selectFiles()
 
-	for key, files := range extensionFileMap {
-		fmt.Println(key)
+	for _, files := range extensionFileMap {
+		//fmt.Println(key)
 
 		// Loop all of the files for this extension
 		for i := 0; i < len(files); i++ {
-			fmt.Println("Comparing", files[i].Location)
+			//fmt.Println("Comparing", files[i].Location)
 
 			// Loop against surrounding files
 			for j := i; j < len(files); j++ {
@@ -27,7 +26,7 @@ func process() {
 				// compare but only lines which are not the same
 				if i != j {
 
-					fmt.Println("Comparing to", files[j].Location)
+					//fmt.Println("Comparing to", files[j].Location)
 
 					//var sb strings.Builder
 					// at this point loop this files lines, looking for matching lines in the other file
@@ -50,7 +49,15 @@ func process() {
 					}
 
 					// now we need to check if there are any duplicates in there....
-					identifyDuplicates(outer)
+					matches := identifyDuplicates(outer)
+
+					if len(matches) != 0 {
+						fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", files[i].Location))
+
+						for _, match := range matches {
+							fmt.Println(fmt.Sprintf(" Length %d lines %d to %d is the same as %d to %d in %s", match.Length, match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location))
+						}
+					}
 
 					//_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
 					//# Matches...
@@ -62,8 +69,8 @@ func process() {
 		}
 	}
 
-	t := str.IndexAllIgnoreCase("", "", -1)
-	fmt.Println(t)
+	//t := str.IndexAllIgnoreCase("", "", -1)
+	//fmt.Println(t)
 }
 
 func selectFiles() map[string][]duplicateFile {
@@ -167,7 +174,9 @@ func selectFiles() map[string][]duplicateFile {
 // If 1 were considered a match then the 3 diagonally indicate
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
-func identifyDuplicates(outer [][]bool) {
+func identifyDuplicates(outer [][]bool) []duplicateMatch {
+
+	var matches []duplicateMatch
 
 	endings := map[int][]int{}
 
@@ -198,16 +207,24 @@ func identifyDuplicates(outer [][]bool) {
 							// we need to also add the last one as being found as this should be the longest string
 							if include {
 								endings[i+k] = append(endings[i+k], j+k)
-								fmt.Println("file 1 from", i, "to", i+k, "file 2 from", j, "to", j+k, "length", count)
+								//fmt.Println("file 1 from", i, "to", i+k, "file 2 from", j, "to", j+k, "length", count)
+								matches = append(matches, duplicateMatch{
+									SourceStartLine: i,
+									SourceEndLine:   i+k,
+									TargetStartLine: j,
+									TargetEndLine:   j+k,
+									Length:          count,
+								})
 							}
 						}
 						break
 					}
 				}
 
-				// now that we have found a match, walk to the right and down to see if there is a match
 				// from this position start walking down and to the right to see how long a match we can find
 			}
 		}
 	}
+
+	return matches
 }
