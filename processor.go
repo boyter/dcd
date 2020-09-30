@@ -6,6 +6,7 @@ import (
 	file "github.com/boyter/go-code-walker"
 	"github.com/mfonda/simhash"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -48,6 +49,13 @@ func process() {
 						//sb.WriteString("\n")
 					}
 
+
+					//for _, l1 := range files[i].LineHashes {
+					//	for _, l2 := range files[j].LineHashes {
+					//		fmt.Println(simhash.Compare(l1, l2))
+					//	}
+					//}
+
 					// now we need to check if there are any duplicates in there....
 					matches := identifyDuplicates(outer)
 
@@ -84,10 +92,18 @@ func selectFiles() map[string][]duplicateFile {
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
+	//fileWalker.AllowListExtensions = []string{"c"}
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}
 
+
+	hashToInts := map[uint64][]uint32{}
+	hashToFiles := map[uint64][]string{}
+
+	var totalLines uint64
+
+	count := 0
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
 		fi, err := os.Lstat(f.Location)
@@ -140,34 +156,68 @@ func selectFiles() map[string][]duplicateFile {
 			continue
 		}
 
+		// at this point we have a candidate file to work with :)
+
 		// condense the lines
 		lines := strings.Split(string(content), "\n")
+		var lineHashes []uint64
 		for i:=0; i<len(lines); i++ {
-			lines[i] = spaceMap(lines[i])
+			clean := strings.ToLower(spaceMap(lines[i]))
+			hash := simhash.Simhash(simhash.NewWordFeatureSet([]byte(clean)))
+
+			lineHashes = append(lineHashes, hash)
+
+			if len(clean) > 3 {
+
+				// if the length is over some amount remove the duplicates
+				hashToInts[hash] = append(hashToInts[hash], uint32(count))
+				//hashToFiles[hash] = append(hashToFiles[hash], f.Location)
+
+				//if len(hashToInts[hash]) > 100 {
+				//	hashToInts[hash] = removeUInt32Duplicates(hashToInts[hash])
+				//}
+				//if len(hashToFiles[hash]) > 100 {
+				//	hashToFiles[hash] = removeStringDuplicates(hashToFiles[hash])
+				//}
+			}
+			totalLines++
 		}
+
 		// now we should loop through and remove the comments, which means hooking into scc's language stuff
+		//ext := file.GetExtension(f.Filename)
+		//
+		//_, ok := extensionFileMap[ext]
+		//if ok {
+		//	extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
+		//		Filename: f.Filename,
+		//		Location: f.Location,
+		//		LineHashes: lineHashes,
+		//	})
+		//} else {
+		//	t := append([]duplicateFile{}, duplicateFile{
+		//		Filename: f.Filename,
+		//		Location: f.Location,
+		//		LineHashes: lineHashes,
+		//	})
+		//	extensionFileMap[ext] = t
+		//}
 
-		// at this point we have a candidate file to work with :)
-		ext := file.GetExtension(f.Filename)
-
-		fmt.Println(simhash.Simhash(simhash.NewWordFeatureSet(content)))
-
-		_, ok := extensionFileMap[ext]
-		if ok {
-			extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
-				Filename: f.Filename,
-				Location: f.Location,
-				Lines: lines,
-			})
-		} else {
-			t := append([]duplicateFile{}, duplicateFile{Filename: f.Filename,
-				Location: f.Location,
-				Lines: lines})
-			extensionFileMap[ext] = t
+		if count % 200 == 0 {
+			printMemUsage()
+			fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
 		}
-
+		count++
 
 	}
+
+	fmt.Println("---------------------")
+	runtime.GC()
+	printMemUsage()
+	fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
+
+	//for k,v := range hashToFiles {
+	//	fmt.Println(k, removeStringDuplicates(v))
+	//}
 
 	return extensionFileMap
 }

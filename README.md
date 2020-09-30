@@ -46,3 +46,6 @@ options needed
 1 filter by extension
 2 filter out matches of the first x lines
 3 filter 
+
+
+1600 MB for about 100,000,000 million lines

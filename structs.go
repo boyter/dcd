@@ -4,6 +4,7 @@ type duplicateFile struct {
 	Filename string
 	Location string
 	Lines []string
+	LineHashes []uint64
 }
 
 type duplicateMatch struct {
