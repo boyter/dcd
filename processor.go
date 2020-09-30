@@ -83,7 +83,6 @@ func selectFiles() map[string][]duplicateFile {
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
-	fileWalker.AllowListExtensions =
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}
