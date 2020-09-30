@@ -2,6 +2,7 @@ github.com/boyter/go-code-walker v1.0.0 h1:8Dq0rDTbzoSZ8qpY9t3lxv8D9xcoCMQPACTjp
 github.com/boyter/go-code-walker v1.0.0/go.mod h1:lZB0zXAG37Ce4TnzmAtdpuBeksy/PTn9mLnDbQQJmKs=
 github.com/boyter/go-str v1.0.1 h1:rBQlnwwQbGVtPDLFH04WKveZ83At7gqOtx5R8aIjHrE=
 github.com/boyter/go-str v1.0.1/go.mod h1:FD45H+c2Ufeb7WguLSWcLXgpErENeUktcb0oz/Am4VU=
+github.com/boyter/go-string v1.0.0/go.mod h1:FwDE90PfycSIgg7twi8xvynURNo3WPM7allPfzeBciI=
 github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0 h1:D/FElE8LKyy7kvdh/ofVkYCmlubcC8wYNlMgNyc7X88=
 github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0/go.mod h1:zC/HNng+aBSmaB3afm1TRvqFahQOBaIH9p6uiINj5Ao=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -20,6 +21,8 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6 h1:bjfMeqxWEJ6IRUvGkiTkSwx0a6UdQJsbirRSoXogteY=
+github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6/go.mod h1:WVJJvUw/pIOcwu2O8ZzHEhmigq2jzwRNfJVRMJB7bR8=
 github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 h1:lYpkrQH5ajf0OXOcUbGjvZxxijuBwbbmlSxLiuofa+g=
 github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1/go.mod h1:pD8RvIylQ358TN4wwqatJ8rNavkEINozVn9DtGI3dfQ=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

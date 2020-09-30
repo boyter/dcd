@@ -13,9 +13,8 @@ func process() {
 	//processor.ProcessConstants()
 	extensionFileMap := selectFiles()
 
-	for _, files := range extensionFileMap {
-		//fmt.Println(key)
-
+	for key, files := range extensionFileMap {
+		first := true
 		// Loop all of the files for this extension
 		for i := 0; i < len(files); i++ {
 			//fmt.Println("Comparing", files[i].Location)
@@ -52,10 +51,16 @@ func process() {
 					matches := identifyDuplicates(outer)
 
 					if len(matches) != 0 {
+
+						if first {
+							first = false
+							fmt.Println("\nProcessing", key)
+						}
+
 						fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", files[i].Location))
 
 						for _, match := range matches {
-							fmt.Println(fmt.Sprintf(" Length %d lines %d to %d is the same as %d to %d in %s", match.Length, match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location))
+							fmt.Println(fmt.Sprintf(" lines %d-%d match lines %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))
 						}
 					}
 
@@ -78,6 +83,7 @@ func selectFiles() map[string][]duplicateFile {
 	fileListQueue := make(chan *file.File, 100)
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
+	fileWalker.AllowListExtensions =
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}
