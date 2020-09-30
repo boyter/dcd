@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	file "github.com/boyter/go-code-walker"
+	"github.com/mfonda/simhash"
 	"os"
 	"strings"
 )
@@ -148,6 +149,8 @@ func selectFiles() map[string][]duplicateFile {
 
 		// at this point we have a candidate file to work with :)
 		ext := file.GetExtension(f.Filename)
+
+		fmt.Println(simhash.Simhash(simhash.NewWordFeatureSet(content)))
 
 		_, ok := extensionFileMap[ext]
 		if ok {

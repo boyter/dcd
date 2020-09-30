@@ -10,7 +10,10 @@ github.com/boyter/go-code-walker/go-gitignore
 ## explicit
 # github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 ## explicit
-# golang.org/x/text v0.3.2
+github.com/mfonda/simhash
+# golang.org/x/text v0.3.3
 ## explicit
+golang.org/x/text/transform
+golang.org/x/text/unicode/norm
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 ## explicit
