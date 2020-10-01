@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	file "github.com/boyter/go-code-walker"
 	"github.com/mfonda/simhash"
@@ -11,78 +10,107 @@ import (
 	"strings"
 )
 
+var minMatchLength = 6
+
 func process() {
 	// Required to load the language information and need only be done once
 	//processor.ProcessConstants()
 	extensionFileMap := selectFiles()
 
 	for key, files := range extensionFileMap {
-		first := true
-		// Loop all of the files for this extension
-		for i := 0; i < len(files); i++ {
-			//fmt.Println("Comparing", files[i].Location)
+		fmt.Println(key)
+		for _, f := range files {
+			fmt.Println(f.Location)
 
-			// Loop against surrounding files
-			for j := i; j < len(files); j++ {
-				// don't compare to itself this way, if the same file we need to instead
-				// compare but only lines which are not the same
-				if i != j {
+			// Filter out all of the possible candidates that could be what we are looking for
+			possibleCandidates := map[string]int{}
+			// find the candidate files that have some matching lines
+			for _, h := range f.LineHashes {
+				c, ok := hashToFiles[uint32(reduceSimhash(h))]
 
-					//fmt.Println("Comparing to", files[j].Location)
-
-					//var sb strings.Builder
-					// at this point loop this files lines, looking for matching lines in the other file
-
-					var outer [][]bool
-					for _, line := range files[i].Lines {
-						var inner []bool
-						for _, line2 := range files[j].Lines {
-							if line == line2 {
-								//sb.WriteString("1")
-								inner = append(inner, true)
-							} else {
-								//sb.WriteString("0")
-								inner = append(inner, false)
-							}
-						}
-
-						outer = append(outer, inner)
-						//sb.WriteString("\n")
+				if ok {
+					for _, s := range c {
+						possibleCandidates[s] = possibleCandidates[s] + 1
 					}
-
-
-					//for _, l1 := range files[i].LineHashes {
-					//	for _, l2 := range files[j].LineHashes {
-					//		fmt.Println(simhash.Compare(l1, l2))
-					//	}
-					//}
-
-					// now we need to check if there are any duplicates in there....
-					matches := identifyDuplicates(outer)
-
-					if len(matches) != 0 {
-
-						if first {
-							first = false
-							fmt.Println("\nProcessing", key)
-						}
-
-						fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", files[i].Location))
-
-						for _, match := range matches {
-							fmt.Println(fmt.Sprintf(" lines %d-%d match lines %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))
-						}
-					}
-
-					//_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
-					//# Matches...
-					//%d %d
-					//%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
-
 				}
 			}
+
+			// Now we have the list, filter out those that cannot be correct
+			var cleanCandidates []string
+			for k, v := range possibleCandidates {
+				if v > minMatchLength {
+					cleanCandidates = append(cleanCandidates, k)
+				}
+			}
+
+			fmt.Println(len(cleanCandidates))
 		}
 	}
+
+	// we no longer need to loop the files, we can get the results for the first file, then use the loopup to find any matching lines in other files
+
+
+	// the below is a loop in loop which is horribly slow but works
+	//for key, files := range extensionFileMap {
+	//	first := true
+	//	// Loop all of the files for this extension
+	//	for i := 0; i < len(files); i++ {
+	//		//fmt.Println("Comparing", files[i].Location)
+	//
+	//		// Loop against surrounding files
+	//		for j := i; j < len(files); j++ {
+	//			// don't compare to itself this way, if the same file we need to instead
+	//			// compare but only lines which are not the same
+	//			if i != j {
+	//
+	//				//fmt.Println("Comparing to", files[j].Location)
+	//
+	//				//var sb strings.Builder
+	//				// at this point loop this files lines, looking for matching lines in the other file
+	//
+	//				var outer [][]bool
+	//				for _, line := range files[i].Lines {
+	//					var inner []bool
+	//					for _, line2 := range files[j].Lines {
+	//						if line == line2 {
+	//							//sb.WriteString("1")
+	//							inner = append(inner, true)
+	//						} else {
+	//							//sb.WriteString("0")
+	//							inner = append(inner, false)
+	//						}
+	//					}
+	//
+	//					outer = append(outer, inner)
+	//					//sb.WriteString("\n")
+	//				}
+	//
+	//				// now we need to check if there are any duplicates in there....
+	//				matches := identifyDuplicates(outer)
+	//
+	//				if len(matches) != 0 {
+	//
+	//					if first {
+	//						first = false
+	//						fmt.Println("\nProcessing", key)
+	//					}
+	//
+	//					fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", files[i].Location))
+	//
+	//					for _, match := range matches {
+	//						fmt.Println(fmt.Sprintf(" lines %d-%d match lines %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))
+	//					}
+	//				}
+	//
+	//				//_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
+	//				//# Matches...
+	//				//%d %d
+	//				//%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
+	//
+	//			}
+	//		}
+	//	}
+	//}
 
 	//t := str.IndexAllIgnoreCase("", "", -1)
 	//fmt.Println(t)
@@ -97,9 +125,6 @@ func selectFiles() map[string][]duplicateFile {
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}
-
-
-
 
 	var totalLines uint64
 
@@ -161,6 +186,9 @@ func selectFiles() map[string][]duplicateFile {
 		// what we want to do now is crunch down the candidate lines to hashes which we can then compare
 		// note that we still
 
+		// now we should loop through and remove the comments, which means hooking into scc's language stuff
+		ext := file.GetExtension(f.Filename)
+
 		lines := strings.Split(string(content), "\n")
 
 		var lineHashes []uint64
@@ -176,24 +204,21 @@ func selectFiles() map[string][]duplicateFile {
 			totalLines++
 		}
 
-		// now we should loop through and remove the comments, which means hooking into scc's language stuff
-		//ext := file.GetExtension(f.Filename)
-		//
-		//_, ok := extensionFileMap[ext]
-		//if ok {
-		//	extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
-		//		Filename: f.Filename,
-		//		Location: f.Location,
-		//		LineHashes: lineHashes,
-		//	})
-		//} else {
-		//	t := append([]duplicateFile{}, duplicateFile{
-		//		Filename: f.Filename,
-		//		Location: f.Location,
-		//		LineHashes: lineHashes,
-		//	})
-		//	extensionFileMap[ext] = t
-		//}
+		_, ok := extensionFileMap[ext]
+		if ok {
+			extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
+				Filename: f.Filename,
+				Location: f.Location,
+				LineHashes: lineHashes,
+			})
+		} else {
+			t := append([]duplicateFile{}, duplicateFile{
+				Filename: f.Filename,
+				Location: f.Location,
+				LineHashes: lineHashes,
+			})
+			extensionFileMap[ext] = t
+		}
 
 		if count%200 == 0 {
 			printMemUsage()
@@ -201,16 +226,10 @@ func selectFiles() map[string][]duplicateFile {
 		}
 		count++
 	}
-	// now go remove all the duplicates in the hashes that we will have
-	for k, _ := range hashToInts {
-		hashToInts[k] = removeUInt32Duplicates(hashToInts[k])
-	}
+
 	for k, _ := range hashToFiles {
 		hashToFiles[k] = removeStringDuplicates(hashToFiles[k])
 	}
-
-	saveSimhashFileToDisk("something.gob")
-	loadSimhashFileFromDisk()
 
 	fmt.Println("---------------------")
 	runtime.GC()
@@ -221,10 +240,7 @@ func selectFiles() map[string][]duplicateFile {
 }
 
 
-//hashToInts := map[uint32][]uint32{}
-//hashToFiles := map[uint32][]string{}
 
-var hashToInts map[uint32][]uint32
 var hashToFiles map[uint32][]string
 
 func addSimhashToFileDatabase(hash uint64, f string) {
@@ -239,44 +255,24 @@ func addSimhashToFileDatabase(hash uint64, f string) {
 	hashToFiles[uint32(hash)] = append(hashToFiles[uint32(hash)], f)
 }
 
-func saveSimhashFileToDisk(filename string) {
-	// Create a file for IO
-	encodeFile, err := os.Create(filename)
-	if err != nil {
-		panic(err)
-	}
+var hashToFilesExt map[string]map[uint32][]string
 
-	// Since this is a binary format large parts of it will be unreadable
-	encoder := gob.NewEncoder(encodeFile)
-
-	// Write to the file
-	if err := encoder.Encode(hashToFiles); err != nil {
-		panic(err)
+func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
+	if hashToFilesExt == nil {
+		hashToFilesExt = map[string]map[uint32][]string{}
 	}
-	encodeFile.Close()
+	// reduce the hash size down which has a few effects
+	// the first is to make the map smaller since we can use a uint32 for storing the hash
+	// the second is that it makes the matching slightly fuzzy so we should group similar fils together
+	// lastly it should increase the number of false positive matches when we go to explore the keyspace
+	hash = reduceSimhash(hash)
+	hashToFiles[uint32(hash)] = append(hashToFiles[uint32(hash)], f)
 }
 
-func loadSimhashFileFromDisk() {
-	// Open a RO file
-	decodeFile, err := os.Open("something.gob")
-	if err != nil {
-		panic(err)
-	}
-	defer decodeFile.Close()
-
-	// Create a decoder
-	decoder := gob.NewDecoder(decodeFile)
-
-	// Place to decode into
-	accounts2 := make(map[uint32]string)
-
-	// Decode -- We need to pass a pointer otherwise accounts2 isn't modified
-	decoder.Decode(&accounts2)
-}
 
 // This takes in the output of a simhash and crunches it down to a far smaller size,
 // in this case down to 6 digits of precision
-// used to reduce the keyspace required for the very large hash thats required
+// used to reduce the keyspace required for the very large hash that may be required
 func reduceSimhash(hash uint64) uint64 {
 	for hash > 10_000_000 {
 		hash = hash / 10
@@ -298,18 +294,21 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 
 	var matches []duplicateMatch
 
+	// stores the endings that have already been used so we don't
+	// report smaller matches
 	endings := map[int][]int{}
 
 	for i := 0; i< len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
 			if outer[i][j] {
 				count := 1
+				// from this position start walking down and to the right to see how long a match we can find
 				for k := 1; k < len(outer); k++ {
 					if (i+k < len(outer) && j+k < len(outer[i])) && outer[i+k][j+k] {
 						count++
 					} else {
 						// if its not a match anymore, break
-						if count >= 6 {
+						if count >= minMatchLength {
 
 							// check if the end is already in cos if so we can ignore its not as long
 
@@ -327,7 +326,6 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 							// we need to also add the last one as being found as this should be the longest string
 							if include {
 								endings[i+k] = append(endings[i+k], j+k)
-								//fmt.Println("file 1 from", i, "to", i+k, "file 2 from", j, "to", j+k, "length", count)
 								matches = append(matches, duplicateMatch{
 									SourceStartLine: i,
 									SourceEndLine:   i+k,
@@ -340,8 +338,6 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 						break
 					}
 				}
-
-				// from this position start walking down and to the right to see how long a match we can find
 			}
 		}
 	}
