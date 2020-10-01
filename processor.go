@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	file "github.com/boyter/go-code-walker"
 	"github.com/mfonda/simhash"
@@ -98,8 +99,7 @@ func selectFiles() map[string][]duplicateFile {
 	extensionFileMap := map[string][]duplicateFile{}
 
 
-	hashToInts := map[uint64][]uint32{}
-	hashToFiles := map[uint64][]string{}
+
 
 	var totalLines uint64
 
@@ -158,8 +158,11 @@ func selectFiles() map[string][]duplicateFile {
 
 		// at this point we have a candidate file to work with :)
 
-		// condense the lines
+		// what we want to do now is crunch down the candidate lines to hashes which we can then compare
+		// note that we still
+
 		lines := strings.Split(string(content), "\n")
+
 		var lineHashes []uint64
 		for i:=0; i<len(lines); i++ {
 			clean := strings.ToLower(spaceMap(lines[i]))
@@ -168,17 +171,7 @@ func selectFiles() map[string][]duplicateFile {
 			lineHashes = append(lineHashes, hash)
 
 			if len(clean) > 3 {
-
-				// if the length is over some amount remove the duplicates
-				hashToInts[hash] = append(hashToInts[hash], uint32(count))
-				//hashToFiles[hash] = append(hashToFiles[hash], f.Location)
-
-				//if len(hashToInts[hash]) > 100 {
-				//	hashToInts[hash] = removeUInt32Duplicates(hashToInts[hash])
-				//}
-				//if len(hashToFiles[hash]) > 100 {
-				//	hashToFiles[hash] = removeStringDuplicates(hashToFiles[hash])
-				//}
+				addSimhashToFileDatabase(hash, f.Location)
 			}
 			totalLines++
 		}
@@ -202,24 +195,93 @@ func selectFiles() map[string][]duplicateFile {
 		//	extensionFileMap[ext] = t
 		//}
 
-		if count % 200 == 0 {
+		if count%200 == 0 {
 			printMemUsage()
 			fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
 		}
 		count++
-
 	}
+	// now go remove all the duplicates in the hashes that we will have
+	for k, _ := range hashToInts {
+		hashToInts[k] = removeUInt32Duplicates(hashToInts[k])
+	}
+	for k, _ := range hashToFiles {
+		hashToFiles[k] = removeStringDuplicates(hashToFiles[k])
+	}
+
+	saveSimhashFileToDisk("something.gob")
+	loadSimhashFileFromDisk()
 
 	fmt.Println("---------------------")
 	runtime.GC()
 	printMemUsage()
 	fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
 
-	//for k,v := range hashToFiles {
-	//	fmt.Println(k, removeStringDuplicates(v))
-	//}
-
 	return extensionFileMap
+}
+
+
+//hashToInts := map[uint32][]uint32{}
+//hashToFiles := map[uint32][]string{}
+
+var hashToInts map[uint32][]uint32
+var hashToFiles map[uint32][]string
+
+func addSimhashToFileDatabase(hash uint64, f string) {
+	if hashToFiles == nil {
+		hashToFiles = map[uint32][]string{}
+	}
+	// reduce the hash size down which has a few effects
+	// the first is to make the map smaller since we can use a uint32 for storing the hash
+	// the second is that it makes the matching slightly fuzzy so we should group similar fils together
+	// lastly it should increase the number of false positive matches when we go to explore the keyspace
+	hash = reduceSimhash(hash)
+	hashToFiles[uint32(hash)] = append(hashToFiles[uint32(hash)], f)
+}
+
+func saveSimhashFileToDisk(filename string) {
+	// Create a file for IO
+	encodeFile, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+
+	// Since this is a binary format large parts of it will be unreadable
+	encoder := gob.NewEncoder(encodeFile)
+
+	// Write to the file
+	if err := encoder.Encode(hashToFiles); err != nil {
+		panic(err)
+	}
+	encodeFile.Close()
+}
+
+func loadSimhashFileFromDisk() {
+	// Open a RO file
+	decodeFile, err := os.Open("something.gob")
+	if err != nil {
+		panic(err)
+	}
+	defer decodeFile.Close()
+
+	// Create a decoder
+	decoder := gob.NewDecoder(decodeFile)
+
+	// Place to decode into
+	accounts2 := make(map[uint32]string)
+
+	// Decode -- We need to pass a pointer otherwise accounts2 isn't modified
+	decoder.Decode(&accounts2)
+}
+
+// This takes in the output of a simhash and crunches it down to a far smaller size,
+// in this case down to 6 digits of precision
+// used to reduce the keyspace required for the very large hash thats required
+func reduceSimhash(hash uint64) uint64 {
+	for hash > 10_000_000 {
+		hash = hash / 10
+	}
+	return hash
 }
 
 
