@@ -3,7 +3,7 @@ package main
 type duplicateFile struct {
 	Filename string
 	Location string
-	Lines []string
+	Extension string
 	LineHashes []uint64
 }
 
