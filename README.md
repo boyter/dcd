@@ -46,6 +46,9 @@ options needed
 1 filter by extension
 2 filter out matches of the first x lines
 3 filter 
-
+4 ignore same file IE only process different
+5 save to pbm file but only for file to file or single file compare match
+6 ignore the first X lines
+7 comment string to ignore till non ignore is spotted
 
 1600 MB for about 100,000,000 million lines

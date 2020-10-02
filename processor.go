@@ -9,7 +9,13 @@ import (
 	"strings"
 )
 
-var minMatchLength = 10
+var minMatchLength = 6
+var processSameFile = false
+
+const (
+	DUPLICATE_DISABLE = "duplicate-disable"
+	DUPLICATE_ENABLE = "duplicate-enable"
+)
 
 func process() {
 	// Required to load the language information and need only be done once
@@ -17,10 +23,12 @@ func process() {
 	extensionFileMap := selectFiles()
 
 	var duplicateCount int
+	var fileCount int
 
 	for key, files := range extensionFileMap {
 		first := true
 		for _, f := range files {
+			fileCount++
 			// Filter out all of the possible candidates that could be what we are looking for
 			possibleCandidates := map[string]int{}
 			// find the candidate files that have some matching lines
@@ -49,6 +57,10 @@ func process() {
 				// we don't support comparing the same file yet...
 				if candidate == f.Location {
 					sameFile = true
+
+					if !processSameFile {
+						continue
+					}
 				}
 
 				var c duplicateFile
@@ -102,75 +114,9 @@ func process() {
 		}
 	}
 
-	fmt.Println("Found", duplicateCount, "duplicate lines")
+	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
 
 	// we no longer need to loop the files, we can get the results for the first file, then use the loopup to find any matching lines in other files
-
-
-	// the below is a loop in loop which is horribly slow but works
-	//for key, files := range extensionFileMap {
-	//	first := true
-	//	// Loop all of the files for this extension
-	//	for i := 0; i < len(files); i++ {
-	//		//fmt.Println("Comparing", files[i].Location)
-	//
-	//		// Loop against surrounding files
-	//		for j := i; j < len(files); j++ {
-	//			// don't compare to itself this way, if the same file we need to instead
-	//			// compare but only lines which are not the same
-	//			if i != j {
-	//
-	//				//fmt.Println("Comparing to", files[j].Location)
-	//
-	//				//var sb strings.Builder
-	//				// at this point loop this files lines, looking for matching lines in the other file
-	//
-	//				var outer [][]bool
-	//				for _, line := range files[i].Lines {
-	//					var inner []bool
-	//					for _, line2 := range files[j].Lines {
-	//						if line == line2 {
-	//							//sb.WriteString("1")
-	//							inner = append(inner, true)
-	//						} else {
-	//							//sb.WriteString("0")
-	//							inner = append(inner, false)
-	//						}
-	//					}
-	//
-	//					outer = append(outer, inner)
-	//					//sb.WriteString("\n")
-	//				}
-	//
-	//				// now we need to check if there are any duplicates in there....
-	//				matches := identifyDuplicates(outer)
-	//
-	//				if len(matches) != 0 {
-	//
-	//					if first {
-	//						first = false
-	//						fmt.Println("\nProcessing", key)
-	//					}
-	//
-	//					fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", files[i].Location))
-	//
-	//					for _, match := range matches {
-	//						fmt.Println(fmt.Sprintf(" lines %d-%d match lines %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))
-	//					}
-	//				}
-	//
-	//				//_ = ioutil.WriteFile(fmt.Sprintf("%s_%s.pbm", files[i].Filename, files[j].Filename), []byte(fmt.Sprintf(`P1
-	//				//# Matches...
-	//				//%d %d
-	//				//%s`, len(files[j].Lines), len(files[i].Lines), sb.String())), 0600)
-	//
-	//			}
-	//		}
-	//	}
-	//}
-
-	//t := str.IndexAllIgnoreCase("", "", -1)
-	//fmt.Println(t)
 }
 
 func selectFiles() map[string][]duplicateFile {
