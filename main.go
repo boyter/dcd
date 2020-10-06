@@ -53,6 +53,13 @@ func main() {
 		false,
 		"",
 	)
+	flags.StringSliceVarP(
+		&allowListExtensions,
+		"include-ext",
+		"i",
+		[]string{},
+		"limit to file extensions [comma separated list: e.g. go,java,js]",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
