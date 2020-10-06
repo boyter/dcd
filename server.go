@@ -7,7 +7,6 @@ package main
 
 var hashToInts map[uint32][]uint32
 
-
 //// now go remove all the duplicates in the hashes that we will have
 //	for k, _ := range hashToInts {
 //		hashToInts[k] = removeUInt32Duplicates(hashToInts[k])

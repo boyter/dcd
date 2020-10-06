@@ -50,7 +50,6 @@ func removeStringDuplicates(elements []string) []string {
 	return result
 }
 
-
 func printMemUsage() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)

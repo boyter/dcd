@@ -32,7 +32,6 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 	return content
 }
 
-
 //https://play.golang.org/p/6dX5SMdVtr
 func saveSimhashFileToDisk(filename string) {
 	// Create a file for IO

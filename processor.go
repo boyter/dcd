@@ -14,7 +14,7 @@ var processSameFile = false
 
 const (
 	DUPLICATE_DISABLE = "duplicate-disable"
-	DUPLICATE_ENABLE = "duplicate-enable"
+	DUPLICATE_ENABLE  = "duplicate-enable"
 )
 
 func process() {
@@ -78,7 +78,7 @@ func process() {
 					for i2, line2 := range c.LineHashes {
 
 						// if its the same file, then we don't compare the same line because they will always be true
-						if sameFile &&  i1 == i2 {
+						if sameFile && i1 == i2 {
 							continue
 						}
 
@@ -104,9 +104,7 @@ func process() {
 					fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", f.Location))
 
 					for _, match := range matches {
-
 						duplicateCount += match.SourceEndLine - match.SourceStartLine
-
 						fmt.Println(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
 					}
 				}
@@ -114,7 +112,7 @@ func process() {
 		}
 	}
 
-	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
+	fmt.Println("\nFound", duplicateCount, "duplicate lines in", fileCount, "files")
 
 	// we no longer need to loop the files, we can get the results for the first file, then use the loopup to find any matching lines in other files
 }
@@ -195,7 +193,7 @@ func selectFiles() map[string][]duplicateFile {
 		lines := strings.Split(string(content), "\n")
 
 		var lineHashes []uint64
-		for i:=0; i<len(lines); i++ {
+		for i := 0; i < len(lines); i++ {
 			clean := strings.ToLower(spaceMap(lines[i]))
 			hash := simhash.Simhash(simhash.NewWordFeatureSet([]byte(clean)))
 
@@ -217,8 +215,8 @@ func selectFiles() map[string][]duplicateFile {
 			})
 		} else {
 			t := append([]duplicateFile{}, duplicateFile{
-				Filename: f.Filename,
-				Location: f.Location,
+				Filename:   f.Filename,
+				Location:   f.Location,
 				Extension:  ext,
 				LineHashes: lineHashes,
 			})
@@ -232,7 +230,7 @@ func selectFiles() map[string][]duplicateFile {
 		//count++
 	}
 
-	for k, _ := range hashToFiles {
+	for k := range hashToFiles {
 		hashToFiles[k] = removeStringDuplicates(hashToFiles[k])
 	}
 
@@ -243,8 +241,6 @@ func selectFiles() map[string][]duplicateFile {
 
 	return extensionFileMap
 }
-
-
 
 var hashToFiles map[uint32][]string
 
@@ -277,7 +273,6 @@ func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
 	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], f)
 }
 
-
 // This takes in the output of a simhash and crunches it down to a far smaller size,
 // in this case down to 6 digits of precision
 // used to reduce the keyspace required for the very large hash that may be required
@@ -287,7 +282,6 @@ func reduceSimhash(hash uint64) uint64 {
 	}
 	return hash
 }
-
 
 // Duplicates consist of diagonal matches so
 //
@@ -306,7 +300,7 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 	// report smaller matches
 	endings := map[int][]int{}
 
-	for i := 0; i< len(outer); i++ {
+	for i := 0; i < len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
 			if outer[i][j] {
 				count := 1
@@ -336,9 +330,9 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 								endings[i+k] = append(endings[i+k], j+k)
 								matches = append(matches, duplicateMatch{
 									SourceStartLine: i,
-									SourceEndLine:   i+k,
+									SourceEndLine:   i + k,
 									TargetStartLine: j,
-									TargetEndLine:   j+k,
+									TargetEndLine:   j + k,
 									Length:          count,
 								})
 							}
