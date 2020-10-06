@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 func main() {
@@ -21,8 +22,6 @@ func main() {
 	//f, _ := os.Create("dcd.pprof")
 	//pprof.StartCPUProfile(f)
 	//defer pprof.StopCPUProfile()
-
-	process()
 
 	//hash1 := simhash.Simhash(simhash.NewWordFeatureSet([]byte(`fmt.Println(fmt.Sprintf(" lines %d-%d match lines %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))`)))
 	//hash2 := simhash.Simhash(simhash.NewWordFeatureSet([]byte(`fmt.Println(fmt.Sprintf(" lines %d-%d match %d-%d in %s (%d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, files[j].Location, match.Length))`)))
@@ -63,4 +62,8 @@ func main() {
 		6,
 		"min match length",
 	)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
