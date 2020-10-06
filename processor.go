@@ -119,6 +119,7 @@ func selectFiles() map[string][]duplicateFile {
 	fileWalker.AllowListExtensions = allowListExtensions
 	fileWalker.IgnoreIgnoreFile = ignoreIgnoreFile
 	fileWalker.IgnoreGitIgnore = ignoreGitIgnore
+	fileWalker.LocationExcludePattern = locationExcludePattern
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}

@@ -72,6 +72,13 @@ func main() {
 		false,
 		"disables .gitignore file logic",
 	)
+	flags.StringSliceVarP(
+		&locationExcludePattern,
+		"exclude-pattern",
+		"x",
+		[]string{},
+		"file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
