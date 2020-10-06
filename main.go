@@ -1,23 +1,22 @@
 package main
 
 import (
-	"os"
-	"runtime/pprof"
-	"time"
+	"fmt"
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	f, _ := os.Create("dcd.pprof")
-	f2, _ := os.Create("dcd.mem.pprof")
-	pprof.StartCPUProfile(f)
-
-	go func() {
-		time.Sleep(time.Second * 120)
-		pprof.WriteHeapProfile(f2)
-		pprof.StopCPUProfile()
-		f2.Close()
-		f.Close()
-	}()
+	//f, _ := os.Create("dcd.pprof")
+	//f2, _ := os.Create("dcd.mem.pprof")
+	//pprof.StartCPUProfile(f)
+	//
+	//go func() {
+	//	time.Sleep(time.Second * 120)
+	//	pprof.WriteHeapProfile(f2)
+	//	pprof.StopCPUProfile()
+	//	f2.Close()
+	//	f.Close()
+	//}()
 
 	//f, _ := os.Create("dcd.pprof")
 	//pprof.StartCPUProfile(f)
@@ -38,4 +37,30 @@ func main() {
 	//}
 	//fmt.Println(hash1)
 
+
+	rootCmd := &cobra.Command{
+		Use:     "dcd",
+		Short:   "dcd [FILE or DIRECTORY]",
+		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org> + Contributors", version),
+		Version: version,
+		Run: func(cmd *cobra.Command, args []string) {
+			//processor.DirFilePaths = args
+			//if processor.ConfigureLimits != nil {
+			//	processor.ConfigureLimits()
+			//}
+			//processor.ConfigureGc()
+			//processor.ConfigureLazy(true)
+			//processor.Process()
+			process()
+		},
+	}
+
+	flags := rootCmd.PersistentFlags()
+
+	flags.IntVar(
+		&minMatchLength,
+		"match-length",
+		6,
+		"min match length",
+	)
 }

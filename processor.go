@@ -9,13 +9,7 @@ import (
 	"strings"
 )
 
-var minMatchLength = 6
-var processSameFile = false
 
-const (
-	DUPLICATE_DISABLE = "duplicate-disable"
-	DUPLICATE_ENABLE  = "duplicate-enable"
-)
 
 func process() {
 	// Required to load the language information and need only be done once

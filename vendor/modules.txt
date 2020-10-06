@@ -6,11 +6,18 @@ github.com/boyter/go-code-walker/go-gitignore
 ## explicit
 # github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0
 ## explicit
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
 # github.com/kr/pretty v0.1.0
 ## explicit
 # github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 ## explicit
 github.com/mfonda/simhash
+# github.com/spf13/cobra v1.0.0
+## explicit
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.3
+github.com/spf13/pflag
 # golang.org/x/text v0.3.3
 ## explicit
 golang.org/x/text/transform
