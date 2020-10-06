@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-
-
 func process() {
 	// Required to load the language information and need only be done once
 	//processor.ProcessConstants()
@@ -117,6 +115,8 @@ func selectFiles() map[string][]duplicateFile {
 
 	fileWalker := file.NewFileWalker(".", fileListQueue)
 	fileWalker.AllowListExtensions = allowListExtensions
+	fileWalker.IgnoreIgnoreFile = ignoreIgnoreFile
+	fileWalker.IgnoreGitIgnore = ignoreGitIgnore
 	go fileWalker.Start()
 
 	extensionFileMap := map[string][]duplicateFile{}

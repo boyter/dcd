@@ -60,6 +60,18 @@ func main() {
 		[]string{},
 		"limit to file extensions [comma separated list: e.g. go,java,js]",
 	)
+	flags.BoolVar(
+		&ignoreIgnoreFile,
+		"no-ignore",
+		false,
+		"disables .ignore file logic",
+	)
+	flags.BoolVar(
+		&ignoreGitIgnore,
+		"no-gitignore",
+		false,
+		"disables .gitignore file logic",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
