@@ -71,12 +71,14 @@ func process() {
 
 						// if its the same file, then we don't compare the same line because they will always be true
 						if sameFile && i1 == i2 {
+							inner = append(inner, false)
 							continue
 						}
 
 						// if the lines are the same then say they are with a true, NB need to look at simhash here
 						//fmt.Println(simhash.Compare(line, line2), line == line2)
-						if line == line2 {
+						//if line == line2 {
+						if simhash.Compare(line, line2) <= 3 {
 							inner = append(inner, true)
 						} else {
 							inner = append(inner, false)

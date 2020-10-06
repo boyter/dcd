@@ -26,7 +26,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:     "dcd",
 		Short:   "dcd [FILE or DIRECTORY]",
-		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org> + Contributors", version),
+		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org>", version),
 		Version: version,
 		Run: func(cmd *cobra.Command, args []string) {
 			dirFilePaths = args
