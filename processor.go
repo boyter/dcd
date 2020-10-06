@@ -12,12 +12,14 @@ func process() {
 	var duplicateCount int
 	var fileCount int
 
+	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
+		// then loop each of the files
 		for _, f := range files {
 			fileCount++
 			// Filter out all of the possible candidates that could be what we are looking for
 			possibleCandidates := map[string]int{}
-			// find the candidate files that have some matching lines
+			// find the candidate files that have at least one matching line
 			for _, h := range f.LineHashes {
 				c, ok := hashToFilesExt[f.Extension][uint32(reduceSimhash(h))]
 
@@ -28,22 +30,26 @@ func process() {
 				}
 			}
 
-			// Now we have the list, filter out those that cannot be correct
+			// Now we have the list, filter out those that cannot be correct because they
+			// don't have as many matching lines as we are looking for
 			var cleanCandidates []string
 			for k, v := range possibleCandidates {
 				if v > minMatchLength {
 					cleanCandidates = append(cleanCandidates, k)
 				}
 			}
+			cleanCandidates = removeStringDuplicates(cleanCandidates)
 
-			// now we can compare this file to all the candidates each file
-
+			// now we can compare this the file we are processing to all the candidate files
 			for _, candidate := range cleanCandidates {
 				var sameFile bool
-				// we don't support comparing the same file yet...
+
+				// if its the same file we need to ensure we know about it because otherwise we mark
+				// it all as being the same, which is probably not what is wanted
 				if candidate == f.Location {
 					sameFile = true
 
+					// user has the option to disable same file checking if they want
 					if !processSameFile {
 						continue
 					}
@@ -71,7 +77,7 @@ func process() {
 
 						// if the lines are the same then say they are with a true, NB need to look at simhash here
 						//fmt.Println(simhash.Compare(line, line2), line == line2)
-						//if line == line2 {
+						// TODO this should be an option to use
 						//if simhash.Compare(line, line2) <= 3 {
 						if line == line2 {
 							inner = append(inner, true)
