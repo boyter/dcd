@@ -115,7 +115,7 @@ func selectFiles() map[string][]duplicateFile {
 	// Now we need to run through every file closed by the filewalker when done
 	fileListQueue := make(chan *file.File, 100)
 
-	fileWalker := file.NewFileWalker(".", fileListQueue)
+	fileWalker := file.NewFileWalker(dirFilePaths[0], fileListQueue)
 	fileWalker.AllowListExtensions = allowListExtensions
 	fileWalker.IgnoreIgnoreFile = ignoreIgnoreFile
 	fileWalker.IgnoreGitIgnore = ignoreGitIgnore
@@ -172,7 +172,7 @@ func selectFiles() map[string][]duplicateFile {
 		}
 		averageLineLength := sumLineLength / len(split)
 
-		if averageLineLength > 255 {
+		if averageLineLength > minifiedLineByteLength {
 			if len(os.Args) != 1 {
 				fmt.Println(fmt.Sprintf("file determined to be minified so moving on %s", f.Location))
 			}

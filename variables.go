@@ -8,6 +8,8 @@ var allowListExtensions = []string{}
 var locationExcludePattern = []string{}
 var ignoreIgnoreFile = false
 var ignoreGitIgnore = false
+var minifiedLineByteLength = 255
+var maxReadSizeBytes int64 = 10000000
 
 const (
 	DUPLICATE_DISABLE = "duplicate-disable"

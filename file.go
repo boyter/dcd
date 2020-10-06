@@ -11,7 +11,7 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 	var content []byte
 
 	// Only read up to ~1MB of a file because anything beyond that is probably pointless
-	if fi.Size() < 1_000_000 {
+	if fi.Size() < maxReadSizeBytes {
 		content, err = ioutil.ReadFile(f.Location)
 	} else {
 		fi, err := os.Open(f.Location)

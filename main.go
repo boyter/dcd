@@ -79,6 +79,18 @@ func main() {
 		[]string{},
 		"file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]",
 	)
+	flags.IntVar(
+		&minifiedLineByteLength,
+		"min-line-length",
+		255,
+		"number of bytes per average line for file to be considered minified",
+	)
+	flags.Int64Var(
+		&maxReadSizeBytes,
+		"max-read-size-bytes",
+		10000000,
+		"number of bytes to read into a file with the remaining content ignored",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
