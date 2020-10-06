@@ -50,5 +50,6 @@ options needed
 5 save to pbm file but only for file to file or single file compare match
 6 ignore the first X lines
 7 comment string to ignore till non ignore is spotted
+8 symlink
 
 1600 MB for about 100,000,000 million lines

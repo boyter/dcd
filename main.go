@@ -4,20 +4,22 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
+	"runtime/pprof"
+	"time"
 )
 
 func main() {
-	//f, _ := os.Create("dcd.pprof")
-	//f2, _ := os.Create("dcd.mem.pprof")
-	//pprof.StartCPUProfile(f)
-	//
-	//go func() {
-	//	time.Sleep(time.Second * 120)
-	//	pprof.WriteHeapProfile(f2)
-	//	pprof.StopCPUProfile()
-	//	f2.Close()
-	//	f.Close()
-	//}()
+	f, _ := os.Create("dcd.pprof")
+	f2, _ := os.Create("dcd.mem.pprof")
+	pprof.StartCPUProfile(f)
+
+	go func() {
+		time.Sleep(time.Second * 30)
+		pprof.WriteHeapProfile(f2)
+		pprof.StopCPUProfile()
+		f2.Close()
+		f.Close()
+	}()
 
 	//f, _ := os.Create("dcd.pprof")
 	//pprof.StartCPUProfile(f)
@@ -90,6 +92,13 @@ func main() {
 		"max-read-size-bytes",
 		10000000,
 		"number of bytes to read into a file with the remaining content ignored",
+	)
+	flags.BoolVarP(
+		&verbose,
+		"verbose",
+		"v",
+		false,
+		"verbose output",
 	)
 
 	if err := rootCmd.Execute(); err != nil {

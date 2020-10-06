@@ -1,12 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	file "github.com/boyter/go-code-walker"
-	"github.com/mfonda/simhash"
-	"os"
-	"strings"
 )
 
 func process() {
@@ -17,8 +12,7 @@ func process() {
 	var duplicateCount int
 	var fileCount int
 
-	for key, files := range extensionFileMap {
-		first := true
+	for _, files := range extensionFileMap {
 		for _, f := range files {
 			fileCount++
 			// Filter out all of the possible candidates that could be what we are looking for
@@ -78,7 +72,8 @@ func process() {
 						// if the lines are the same then say they are with a true, NB need to look at simhash here
 						//fmt.Println(simhash.Compare(line, line2), line == line2)
 						//if line == line2 {
-						if simhash.Compare(line, line2) <= 3 {
+						//if simhash.Compare(line, line2) <= 3 {
+						if line == line2 {
 							inner = append(inner, true)
 						} else {
 							inner = append(inner, false)
@@ -89,12 +84,6 @@ func process() {
 
 				matches := identifyDuplicates(outer)
 				if len(matches) != 0 {
-
-					if first {
-						first = false
-						fmt.Println("\nProcessing", key)
-					}
-
 					fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", f.Location))
 
 					for _, match := range matches {
@@ -109,134 +98,6 @@ func process() {
 	fmt.Println("\nFound", duplicateCount, "duplicate lines in", fileCount, "files")
 
 	// we no longer need to loop the files, we can get the results for the first file, then use the loopup to find any matching lines in other files
-}
-
-func selectFiles() map[string][]duplicateFile {
-	// Now we need to run through every file closed by the filewalker when done
-	fileListQueue := make(chan *file.File, 100)
-
-	fileWalker := file.NewFileWalker(dirFilePaths[0], fileListQueue)
-	fileWalker.AllowListExtensions = allowListExtensions
-	fileWalker.IgnoreIgnoreFile = ignoreIgnoreFile
-	fileWalker.IgnoreGitIgnore = ignoreGitIgnore
-	fileWalker.LocationExcludePattern = locationExcludePattern
-	go fileWalker.Start()
-
-	extensionFileMap := map[string][]duplicateFile{}
-
-	var totalLines uint64
-
-	//count := 0
-	for f := range fileListQueue {
-		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
-		fi, err := os.Lstat(f.Location)
-		if err != nil {
-			fmt.Println(fmt.Sprintf("error %s", err.Error()))
-			continue
-		}
-
-		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-			fmt.Println(fmt.Sprintf("skipping symlink file: %s", f.Location))
-			continue
-		}
-
-		content := readFileContent(fi, err, f)
-
-		// if there is nothing in the file lets not bother indexing it because its not searchable either
-		if len(content) == 0 {
-			fmt.Println(fmt.Sprintf("empty file so moving on %s", f.Location))
-			continue
-		}
-
-		// Check if this file is binary by checking for nul byte and if so bail out
-		// this is how GNU Grep, git and ripgrep check for binary files
-		isBinary := false
-		for _, b := range content {
-			if b == 0 {
-				isBinary = true
-				continue
-			}
-		}
-
-		if isBinary {
-			fmt.Println(fmt.Sprintf("file determined to be binary so moving on %s", f.Location))
-			continue
-		}
-
-		// Check if this file is minified
-		// Check if the file is minified and if so ignore it
-		split := bytes.Split(content, []byte("\n"))
-		sumLineLength := 0
-		for _, s := range split {
-			sumLineLength += len(s)
-		}
-		averageLineLength := sumLineLength / len(split)
-
-		if averageLineLength > minifiedLineByteLength {
-			if len(os.Args) != 1 {
-				fmt.Println(fmt.Sprintf("file determined to be minified so moving on %s", f.Location))
-			}
-			continue
-		}
-
-		// at this point we have a candidate file to work with :)
-
-		// what we want to do now is crunch down the candidate lines to hashes which we can then compare
-		// note that we still
-
-		// now we should loop through and remove the comments, which means hooking into scc's language stuff
-		ext := file.GetExtension(f.Filename)
-
-		lines := strings.Split(string(content), "\n")
-
-		var lineHashes []uint64
-		for i := 0; i < len(lines); i++ {
-			clean := strings.ToLower(spaceMap(lines[i]))
-			hash := simhash.Simhash(simhash.NewWordFeatureSet([]byte(clean)))
-
-			lineHashes = append(lineHashes, hash)
-
-			if len(clean) > 3 {
-				addSimhashToFileExtDatabase(hash, ext, f.Location)
-			}
-			totalLines++
-		}
-
-		_, ok := extensionFileMap[ext]
-		if ok {
-			extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
-				Filename:   f.Filename,
-				Location:   f.Location,
-				Extension:  ext,
-				LineHashes: lineHashes,
-			})
-		} else {
-			t := append([]duplicateFile{}, duplicateFile{
-				Filename:   f.Filename,
-				Location:   f.Location,
-				Extension:  ext,
-				LineHashes: lineHashes,
-			})
-			extensionFileMap[ext] = t
-		}
-
-		//if count%200 == 0 {
-		//	printMemUsage()
-		//	fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
-		//}
-		//count++
-	}
-
-	for k := range hashToFiles {
-		hashToFiles[k] = removeStringDuplicates(hashToFiles[k])
-	}
-
-	//fmt.Println("---------------------")
-	//runtime.GC()
-	//printMemUsage()
-	//fmt.Println("total lines", totalLines, "map", len(hashToInts), len(hashToFiles))
-
-	return extensionFileMap
 }
 
 var hashToFiles map[uint32][]string
@@ -290,7 +151,6 @@ func reduceSimhash(hash uint64) uint64 {
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
 func identifyDuplicates(outer [][]bool) []duplicateMatch {
-
 	var matches []duplicateMatch
 
 	// stores the endings that have already been used so we don't
@@ -299,18 +159,19 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 
 	for i := 0; i < len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
+			// if we we find a pixel that is marked as on then lets start looking
 			if outer[i][j] {
 				count := 1
 				// from this position start walking down and to the right to see how long a match we can find
+				// TODO can speed this up by checking if this pixel is in the endings... already
 				for k := 1; k < len(outer); k++ {
 					if (i+k < len(outer) && j+k < len(outer[i])) && outer[i+k][j+k] {
 						count++
 					} else {
-						// if its not a match anymore, break
+						// if its not a match anymore, break but not before checking if we have
+						// a longer match than we are looking for and if so try to work on that
 						if count >= minMatchLength {
-
 							// check if the end is already in cos if so we can ignore its not as long
-
 							include := true
 							_, ok := endings[i+k]
 							if ok {
@@ -334,6 +195,8 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 								})
 							}
 						}
+
+						// we didn't match at this point so break out so we can move on to the next pixel
 						break
 					}
 				}
