@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
-	"runtime/pprof"
 )
 
 func main() {
@@ -20,9 +19,9 @@ func main() {
 	//	f.Close()
 	//}()
 
-	f, _ := os.Create("dcd.pprof")
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	//f, _ := os.Create("dcd.pprof")
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
 
 	rootCmd := &cobra.Command{
 		Use:     "dcd",

@@ -64,14 +64,16 @@ func process() {
 				}
 
 				// comparison actually starts here
-				var outer [][]bool
+				outer := make([][]bool, len(f.LineHashes), len(f.LineHashes))
 				for i1, line := range f.LineHashes {
-					var inner []bool
+					//var inner []bool
+					inner := make([]bool, len(c.LineHashes), len(c.LineHashes))
 					for i2, line2 := range c.LineHashes {
 
 						// if its the same file, then we don't compare the same line because they will always be true
 						if sameFile && i1 == i2 {
-							inner = append(inner, false)
+							//inner = append(inner, false)
+							inner[i2] = false
 							continue
 						}
 
@@ -80,12 +82,14 @@ func process() {
 						// TODO this should be an option to use
 						//if simhash.Compare(line, line2) <= 3 {
 						if line == line2 {
-							inner = append(inner, true)
+							//inner = append(inner, true)
+							inner[i2] = true
 						} else {
-							inner = append(inner, false)
+							//inner = append(inner, false)
+							inner[i2] = false
 						}
 					}
-					outer = append(outer, inner)
+					outer[i1] = inner
 				}
 
 				matches := identifyDuplicates(outer)
@@ -124,6 +128,7 @@ func addSimhashToFileDatabase(hash uint64, f string) {
 var hashToFilesExt map[string]map[uint32][]string
 
 var hashToFilesExt2 map[string]map[uint32][]uint32
+
 // contains a int to a filename, which is kept as a lookup to avoid storing string in the above which causes GC pressure
 var intToFilename map[uint32]string
 var intToFilenameCount uint32
