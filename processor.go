@@ -120,7 +120,13 @@ func addSimhashToFileDatabase(hash uint64, f string) {
 	hashToFiles[uint32(hash)] = append(hashToFiles[uint32(hash)], f)
 }
 
+// contains extension, mapping to a map of simhashes to filenames NB the last string is causing GC annoyances
 var hashToFilesExt map[string]map[uint32][]string
+
+var hashToFilesExt2 map[string]map[uint32][]uint32
+// contains a int to a filename, which is kept as a lookup to avoid storing string in the above which causes GC pressure
+var intToFilename map[uint32]string
+var intToFilenameCount uint32
 
 func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
 	if hashToFilesExt == nil {
@@ -135,6 +141,38 @@ func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
 	// lastly it should increase the number of false positive matches when we go to explore the keyspace
 	hash = reduceSimhash(hash)
 	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], f)
+}
+
+func addSimhashToFileExtDatabase2(hash uint64, ext string, f string) {
+	if hashToFilesExt2 == nil {
+		hashToFilesExt2 = map[string]map[uint32][]uint32{}
+	}
+	if hashToFilesExt2[ext] == nil {
+		hashToFilesExt2[ext] = map[uint32][]uint32{}
+	}
+	if intToFilename == nil {
+		intToFilename = map[uint32]string{}
+	}
+	// reduce the hash size down which has a few effects
+	// the first is to make the map smaller since we can use a uint32 for storing the hash
+	// the second is that it makes the matching slightly fuzzy so we should group similar fils together
+	// lastly it should increase the number of false positive matches when we go to explore the keyspace
+	hash = reduceSimhash(hash)
+
+	// check if this value exists in the int to filename and if so we set the i value so we just update nothing
+	i := intToFilenameCount
+	for k, v := range intToFilename {
+		if v == f {
+			i = k
+			break
+		}
+	}
+	intToFilename[i] = f
+
+	// now increment the count so we ensure we don't repeat but might skip if we reuse
+	intToFilenameCount++
+
+	hashToFilesExt2[ext][uint32(hash)] = append(hashToFilesExt2[ext][uint32(hash)], i)
 }
 
 // This takes in the output of a simhash and crunches it down to a far smaller size,

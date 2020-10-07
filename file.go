@@ -24,7 +24,7 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 		}
 		defer fi.Close()
 
-		byteSlice := make([]byte, 1_000_000)
+		byteSlice := make([]byte, maxReadSizeBytes)
 		_, err = fi.Read(byteSlice)
 		if err != nil {
 			return nil
@@ -155,7 +155,6 @@ func selectFiles() map[string][]duplicateFile {
 
 		// now we should loop through and remove the comments, which means hooking into scc's language stuff
 		ext := file.GetExtension(f.Filename)
-
 		lines := strings.Split(string(content), "\n")
 
 		var lineHashes []uint64
@@ -167,6 +166,7 @@ func selectFiles() map[string][]duplicateFile {
 
 			if len(clean) > 3 {
 				addSimhashToFileExtDatabase(hash, ext, f.Location)
+				addSimhashToFileExtDatabase2(hash, ext, f.Location)
 			}
 			totalLines++
 		}
