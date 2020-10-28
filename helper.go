@@ -63,3 +63,42 @@ func printMemUsage() {
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
+
+func codeCleanPipeline(content string) string {
+	var str strings.Builder
+	content = strings.ToLower(content)
+	str.WriteString(content)
+
+	modifiedContent := content
+	for _, c := range []string{"<", ">", ")", "(", "[", "]", "|", "=", ",", ":"} {
+		modifiedContent = strings.Replace(modifiedContent, c, " ", -1)
+	}
+	str.WriteString(" ")
+	str.WriteString(modifiedContent)
+
+	for _, c := range []string{"."} {
+		modifiedContent = strings.Replace(modifiedContent, c, " ", -1)
+	}
+	str.WriteString(" ")
+	str.WriteString(modifiedContent)
+
+	for _, c := range []string{";", "{", "}", "/"} {
+		modifiedContent = strings.Replace(modifiedContent, c, " ", -1)
+	}
+	str.WriteString(" ")
+	str.WriteString(modifiedContent)
+
+	for _, c := range []string{`"`, `'`} {
+		modifiedContent = strings.Replace(modifiedContent, c, " ", -1)
+	}
+	str.WriteString(" ")
+	str.WriteString(modifiedContent)
+
+	for _, c := range []string{`_`, `@`, `#`, `$`, `-`, `+`} {
+		modifiedContent = strings.Replace(modifiedContent, c, " ", -1)
+	}
+	str.WriteString(" ")
+	str.WriteString(modifiedContent)
+
+	return str.String()
+}
