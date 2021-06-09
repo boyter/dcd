@@ -9,7 +9,7 @@ import (
 func main() {
 	rootCmd := &cobra.Command{
 		Use:     "dcd",
-		Short:   "dcd [FILE or DIRECTORY]",
+		Short:   "dcd",
 		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org>", version),
 		Version: version,
 		Run: func(cmd *cobra.Command, args []string) {
