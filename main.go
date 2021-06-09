@@ -7,22 +7,6 @@ import (
 )
 
 func main() {
-	//f, _ := os.Create("dcd.pprof")
-	//f2, _ := os.Create("dcd.mem.pprof")
-	//pprof.StartCPUProfile(f)
-	//
-	//go func() {
-	//	time.Sleep(time.Millisecond * 500)
-	//	pprof.WriteHeapProfile(f2)
-	//	pprof.StopCPUProfile()
-	//	f2.Close()
-	//	f.Close()
-	//}()
-
-	//f, _ := os.Create("dcd.pprof")
-	//pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
-
 	rootCmd := &cobra.Command{
 		Use:     "dcd",
 		Short:   "dcd [FILE or DIRECTORY]",

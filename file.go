@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	file "github.com/boyter/go-code-walker"
 	"github.com/mfonda/simhash"
@@ -36,42 +35,6 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 	return content
 }
 
-//https://play.golang.org/p/6dX5SMdVtr
-func saveSimhashFileToDisk(filename string) {
-	// Create a file for IO
-	encodeFile, err := os.Create(filename)
-	if err != nil {
-		panic(err)
-	}
-
-	// Since this is a binary format large parts of it will be unreadable
-	encoder := gob.NewEncoder(encodeFile)
-
-	// Write to the file
-	if err := encoder.Encode(hashToFiles); err != nil {
-		panic(err)
-	}
-	encodeFile.Close()
-}
-
-func loadSimhashFileFromDisk() {
-	// Open a RO file
-	decodeFile, err := os.Open("something.gob")
-	if err != nil {
-		panic(err)
-	}
-	defer decodeFile.Close()
-
-	// Create a decoder
-	decoder := gob.NewDecoder(decodeFile)
-
-	// Place to decode into
-	accounts2 := make(map[uint32]string)
-
-	// Decode -- We need to pass a pointer otherwise accounts2 isn't modified
-	decoder.Decode(&accounts2)
-}
-
 func selectFiles() map[string][]duplicateFile {
 	// Now we need to run through every file closed by the filewalker when done
 	fileListQueue := make(chan *file.File, 100)
@@ -87,7 +50,6 @@ func selectFiles() map[string][]duplicateFile {
 
 	var totalLines uint64
 
-	//count := 0
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
 		fi, err := os.Lstat(f.Location)
@@ -149,11 +111,8 @@ func selectFiles() map[string][]duplicateFile {
 		}
 
 		// at this point we have a candidate file to work with :)
-
 		// what we want to do now is crunch down the candidate lines to hashes which we can then compare
-		// note that we still
 
-		// now we should loop through and remove the comments, which means hooking into scc's language stuff
 		ext := file.GetExtension(f.Filename)
 		lines := strings.Split(string(content), "\n")
 

@@ -78,14 +78,9 @@ func process() {
 						}
 
 						// if the lines are the same then say they are with a true, NB need to look at simhash here
-						//fmt.Println(simhash.Compare(line, line2), line == line2)
-						// TODO this should be an option to use
-						//if simhash.Compare(line, line2) <= 3 {
 						if line == line2 {
-							//inner = append(inner, true)
 							inner[i2] = true
 						} else {
-							//inner = append(inner, false)
 							inner[i2] = false
 						}
 					}
@@ -106,23 +101,9 @@ func process() {
 	}
 
 	fmt.Println("\nFound", duplicateCount, "duplicate lines in", fileCount, "files")
-
-	// we no longer need to loop the files, we can get the results for the first file, then use the loopup to find any matching lines in other files
 }
 
 var hashToFiles map[uint32][]string
-
-func addSimhashToFileDatabase(hash uint64, f string) {
-	if hashToFiles == nil {
-		hashToFiles = map[uint32][]string{}
-	}
-	// reduce the hash size down which has a few effects
-	// the first is to make the map smaller since we can use a uint32 for storing the hash
-	// the second is that it makes the matching slightly fuzzy so we should group similar fils together
-	// lastly it should increase the number of false positive matches when we go to explore the keyspace
-	hash = reduceSimhash(hash)
-	hashToFiles[uint32(hash)] = append(hashToFiles[uint32(hash)], f)
-}
 
 // contains extension, mapping to a map of simhashes to filenames NB the last string is causing GC annoyances
 var hashToFilesExt map[string]map[uint32][]string
@@ -142,7 +123,7 @@ func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
 	}
 	// reduce the hash size down which has a few effects
 	// the first is to make the map smaller since we can use a uint32 for storing the hash
-	// the second is that it makes the matching slightly fuzzy so we should group similar fils together
+	// the second is that it makes the matching slightly fuzzy so we should group similar files together
 	// lastly it should increase the number of false positive matches when we go to explore the keyspace
 	hash = reduceSimhash(hash)
 	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], f)
