@@ -13,7 +13,7 @@ Licensed under [GNU Affero General Public License 3.0](https://www.gnu.org/licen
 
 #### Go Get
 
-If you are comfortable using Go and have >= 1.13 installed:
+If you are comfortable using Go and have >= 1.19 installed:
 
 `$ go get -u github.com/boyter/dcd/`
 
