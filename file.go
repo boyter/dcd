@@ -3,14 +3,14 @@ package main
 import (
 	"bytes"
 	"fmt"
-	file "github.com/boyter/go-code-walker"
+	"github.com/boyter/gocodewalker"
 	"github.com/mfonda/simhash"
 	"io/ioutil"
 	"os"
 	"strings"
 )
 
-func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
+func readFileContent(fi os.FileInfo, err error, f *gocodewalker.File) []byte {
 	var content []byte
 
 	// Only read up to ~1MB of a file because anything beyond that is probably pointless
@@ -37,9 +37,9 @@ func readFileContent(fi os.FileInfo, err error, f *file.File) []byte {
 
 func selectFiles() map[string][]duplicateFile {
 	// Now we need to run through every file closed by the filewalker when done
-	fileListQueue := make(chan *file.File, 100)
+	fileListQueue := make(chan *gocodewalker.File, 100)
 
-	fileWalker := file.NewFileWalker(dirFilePaths[0], fileListQueue)
+	fileWalker := gocodewalker.NewFileWalker(dirFilePaths[0], fileListQueue)
 	fileWalker.AllowListExtensions = allowListExtensions
 	fileWalker.IgnoreIgnoreFile = ignoreIgnoreFile
 	fileWalker.IgnoreGitIgnore = ignoreGitIgnore
@@ -113,7 +113,7 @@ func selectFiles() map[string][]duplicateFile {
 		// at this point we have a candidate file to work with :)
 		// what we want to do now is crunch down the candidate lines to hashes which we can then compare
 
-		ext := file.GetExtension(f.Filename)
+		ext := gocodewalker.GetExtension(f.Filename)
 		lines := strings.Split(string(content), "\n")
 
 		var lineHashes []uint64

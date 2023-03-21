@@ -1,15 +1,11 @@
-# github.com/boyter/go-code-walker v1.0.0
+# github.com/boyter/gocodewalker v1.0.1-0.20230321052529-86e91fcf4a3a
 ## explicit
-github.com/boyter/go-code-walker
-github.com/boyter/go-code-walker/go-gitignore
-# github.com/boyter/go-string v1.0.0
-## explicit
-# github.com/boyter/scc v1.12.2-0.20200922230120-da5ee45890e0
-## explicit
+github.com/boyter/gocodewalker
+github.com/boyter/gocodewalker/go-gitignore
+# github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
+github.com/danwakefield/fnmatch
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/kr/pretty v0.1.0
-## explicit
 # github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 ## explicit
 github.com/mfonda/simhash
@@ -22,5 +18,3 @@ github.com/spf13/pflag
 ## explicit
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
-# gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
-## explicit

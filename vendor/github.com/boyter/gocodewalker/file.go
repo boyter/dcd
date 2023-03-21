@@ -4,12 +4,12 @@
 
 // SPDX-License-Identifier: MIT OR Unlicense
 
-package file
+package gocodewalker
 
 import (
+	"bytes"
 	"errors"
-	"github.com/boyter/go-code-walker/go-gitignore"
-	"io/ioutil"
+	"github.com/boyter/gocodewalker/go-gitignore"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,8 +17,13 @@ import (
 	"sync"
 )
 
+const (
+	GitIgnore = ".gitignore"
+	Ignore    = ".ignore"
+)
+
 // ErrTerminateWalk error which indicates that the walker was terminated
-var ErrTerminateWalk = errors.New("walker terminated")
+var ErrTerminateWalk = errors.New("gocodewalker terminated")
 
 // File is a struct returned which contains the
 type File struct {
@@ -32,14 +37,12 @@ type FileWalker struct {
 	isWalking              bool
 	directory              string
 	fileListQueue          chan *File
-	LocationExcludePattern []string // Case sensitive patterns which exclude files
+	LocationExcludePattern []string // Case-sensitive patterns which exclude files
 	PathExclude            []string // Paths to always ignore such as .git,.svn and .hg
 	IgnoreIgnoreFile       bool     // Should .ignore files be respected?
 	IgnoreGitIgnore        bool     // Should .gitignore files be respected?
 	IncludeHidden          bool     // Should hidden files and directories be included/walked
-	InstanceId             int
 	AllowListExtensions    []string // Which extensions should be allowed
-	UniqueId               string
 }
 
 // NewFileWalker constructs a filewalker, which will walk the supplied directory
@@ -86,7 +89,7 @@ func (f *FileWalker) Start() error {
 	f.isWalking = true
 	f.walkMutex.Unlock()
 
-	err := f.walkDirectoryRecursive(f.directory, []gitignore.IgnoreMatcher{})
+	err := f.walkDirectoryRecursive(f.directory, []gitignore.GitIgnore{}, []gitignore.GitIgnore{})
 	close(f.fileListQueue)
 
 	f.walkMutex.Lock()
@@ -96,29 +99,34 @@ func (f *FileWalker) Start() error {
 	return err
 }
 
-func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignore.IgnoreMatcher) error {
+func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitignore.GitIgnore, ignores []gitignore.GitIgnore) error {
 	// NB have to call unlock not using defer because method is recursive
 	// and will deadlock if not done manually
 	f.walkMutex.Lock()
-	if f.terminateWalking == true {
+	if f.terminateWalking {
 		f.walkMutex.Unlock()
 		return ErrTerminateWalk
 	}
 	f.walkMutex.Unlock()
 
-	fileInfos, err := ioutil.ReadDir(directory)
+	d, err := os.Open(directory)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
 
+	foundFiles, err := d.ReadDir(-1)
 	if err != nil {
 		return err
 	}
 
-	files := []os.FileInfo{}
-	dirs := []os.FileInfo{}
+	files := []os.DirEntry{}
+	dirs := []os.DirEntry{}
 
 	// We want to break apart the files and directories from the
 	// return as we loop over them differently and this avoids some
 	// nested if logic at the expense of a "redundant" loop
-	for _, file := range fileInfos {
+	for _, file := range foundFiles {
 		if file.IsDir() {
 			dirs = append(dirs, file)
 		} else {
@@ -126,24 +134,38 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 		}
 	}
 
-	// Pull out all of the ignore and gitignore files and add them
-	// to out collection of ignores to be applied for this pass
+	// Pull out all ignore and gitignore files and add them
+	// to out collection of gitignores to be applied for this pass
 	// and any subdirectories
+	// Since they can apply to the current list of files we need to ensure
+	// we do this before processing files themselves
 	for _, file := range files {
 		if !f.IgnoreGitIgnore {
-			if file.Name() == ".gitignore" {
-				ignore, err := gitignore.NewGitIgnore(filepath.Join(directory, file.Name()))
+			if file.Name() == GitIgnore {
+				c, err := os.ReadFile(filepath.Join(directory, file.Name()))
 				if err == nil {
-					ignores = append(ignores, ignore)
+					abs, err := filepath.Abs(directory)
+					if err != nil {
+						continue
+					}
+
+					gitIgnore := gitignore.New(bytes.NewReader(c), abs, nil)
+					gitignores = append(gitignores, gitIgnore)
 				}
 			}
 		}
 
 		if !f.IgnoreIgnoreFile {
-			if file.Name() == ".ignore" {
-				ignore, err := gitignore.NewGitIgnore(filepath.Join(directory, file.Name()))
+			if file.Name() == Ignore {
+				c, err := os.ReadFile(filepath.Join(directory, file.Name()))
 				if err == nil {
-					ignores = append(ignores, ignore)
+					abs, err := filepath.Abs(directory)
+					if err != nil {
+						continue
+					}
+
+					gitIgnore := gitignore.New(bytes.NewReader(c), abs, nil)
+					ignores = append(ignores, gitIgnore)
 				}
 			}
 		}
@@ -153,14 +175,23 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 	// the output before traversing into directories for more files
 	for _, file := range files {
 		shouldIgnore := false
+		joined := filepath.Join(directory, file.Name())
 
-		// Check against the ignore files we have if the file we are looking at
-		// should be ignored
-		// It is safe to always call this because the ignores will not be added
-		// in previous steps
+		for _, ignore := range gitignores {
+			// we have the following situations
+			// 1. none of the gitignores match
+			// 2. one or more match
+			// for #1 this means we should include the file
+			// for #2 this means the last one wins since it should be the most correct
+			if ignore.MatchIsDir(joined, false) != nil {
+				shouldIgnore = ignore.Ignore(joined)
+			}
+		}
+
 		for _, ignore := range ignores {
-			if ignore.Match(filepath.Join(directory, file.Name()), file.IsDir()) {
-				shouldIgnore = true
+			// same rules as above
+			if ignore.MatchIsDir(joined, false) != nil {
+				shouldIgnore = ignore.Ignore(joined)
 			}
 		}
 
@@ -201,14 +232,14 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 
 		if !shouldIgnore {
 			for _, p := range f.LocationExcludePattern {
-				if strings.Contains(filepath.Join(directory, file.Name()), p) {
+				if strings.Contains(joined, p) {
 					shouldIgnore = true
 				}
 			}
 
 			if !shouldIgnore {
 				f.fileListQueue <- &File{
-					Location: filepath.Join(directory, file.Name()),
+					Location: joined,
 					Filename: file.Name(),
 				}
 			}
@@ -219,14 +250,27 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 	// channel some files to process
 	for _, dir := range dirs {
 		var shouldIgnore bool
+		joined := filepath.Join(directory, dir.Name())
 
 		// Check against the ignore files we have if the file we are looking at
 		// should be ignored
-		// It is safe to always call this because the ignores will not be added
+		// It is safe to always call this because the gitignores will not be added
 		// in previous steps
+		for _, ignore := range gitignores {
+			// we have the following situations
+			// 1. none of the gitignores match
+			// 2. one or more match
+			// for #1 this means we should include the file
+			// for #2 this means the last one wins since it should be the most correct
+			if ignore.MatchIsDir(joined, true) != nil {
+				shouldIgnore = ignore.Ignore(joined)
+			}
+		}
+
 		for _, ignore := range ignores {
-			if ignore.Match(filepath.Join(directory, dir.Name()), dir.IsDir()) {
-				shouldIgnore = true
+			// same rules as above
+			if ignore.MatchIsDir(joined, true) != nil {
+				shouldIgnore = ignore.Ignore(joined)
 			}
 		}
 
@@ -251,12 +295,12 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 
 		if !shouldIgnore {
 			for _, p := range f.LocationExcludePattern {
-				if strings.Contains(filepath.Join(directory, dir.Name()), p) {
+				if strings.Contains(joined, p) {
 					shouldIgnore = true
 				}
 			}
 
-			err = f.walkDirectoryRecursive(filepath.Join(directory, dir.Name()), ignores)
+			err = f.walkDirectoryRecursive(joined, gitignores, ignores)
 			if err != nil {
 				return err
 			}
@@ -268,7 +312,7 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, ignores []gitignor
 
 // FindRepositoryRoot given the supplied directory backwards looking for .git or .hg
 // directories indicating we should start our search from that
-// location as its the root.
+// location as it's the root.
 // Returns the first directory below supplied with .git or .hg in it
 // otherwise the supplied directory
 func FindRepositoryRoot(startDirectory string) string {
@@ -321,7 +365,6 @@ func checkForGitOrMercurial(curdir string) bool {
 // which deals with extensions specific to code such as
 // .travis.yml and the like
 func GetExtension(name string) string {
-
 	name = strings.ToLower(name)
 	if !strings.Contains(name, ".") {
 		return name

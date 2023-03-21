@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Unlicense
-//+build windows
+//go:build windows
+// +build windows
 
-package file
+package gocodewalker
 
 import (
 	"os"
