@@ -1,4 +1,4 @@
-# github.com/boyter/gocodewalker v1.0.1-0.20230321052529-86e91fcf4a3a
+# github.com/boyter/gocodewalker v1.1.0
 ## explicit
 github.com/boyter/gocodewalker
 github.com/boyter/gocodewalker/go-gitignore

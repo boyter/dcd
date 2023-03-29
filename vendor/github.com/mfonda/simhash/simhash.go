@@ -81,9 +81,8 @@ func VectorizeBytes(features [][]byte) Vector {
 
 // Fingerprint returns a 64-bit fingerprint of the given vector.
 // The fingerprint f of a given 64-dimension vector v is defined as follows:
-//
-//	f[i] = 1 if v[i] >= 0
-//	f[i] = 0 if v[i] < 0
+//   f[i] = 1 if v[i] >= 0
+//   f[i] = 0 if v[i] < 0
 func Fingerprint(v Vector) uint64 {
 	var f uint64
 	for i := uint8(0); i < 64; i++ {
