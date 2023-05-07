@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/boyter/gocodewalker"
 	"github.com/mfonda/simhash"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -15,7 +14,7 @@ func readFileContent(fi os.FileInfo, err error, f *gocodewalker.File) []byte {
 
 	// Only read up to ~1MB of a file because anything beyond that is probably pointless
 	if fi.Size() < maxReadSizeBytes {
-		content, err = ioutil.ReadFile(f.Location)
+		content, err = os.ReadFile(f.Location)
 	} else {
 		fi, err := os.Open(f.Location)
 		if err != nil {

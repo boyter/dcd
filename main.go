@@ -7,6 +7,10 @@ import (
 )
 
 func main() {
+	//f, _ := os.Create("profile.pprof")
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
+
 	rootCmd := &cobra.Command{
 		Use:     "dcd",
 		Short:   "dcd",

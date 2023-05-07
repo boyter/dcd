@@ -180,6 +180,8 @@ func reduceSimhash(hash uint64) uint64 {
 // If 1 were considered a match then the 3 diagonally indicate
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
+// TODO include checking down or right as well, as that could be considered
+// a match
 func identifyDuplicates(outer [][]bool) []duplicateMatch {
 	var matches []duplicateMatch
 
