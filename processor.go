@@ -16,8 +16,6 @@ func process() {
 
 	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
-		// then loop each of the files
-
 		channel := make(chan duplicateFile)
 		var wg sync.WaitGroup
 
@@ -25,6 +23,7 @@ func process() {
 			wg.Add(1)
 			go func() {
 				for f := range channel {
+					// then loop each of the files
 					dc := processFile(f, extensionFileMap)
 					atomic.AddInt64(&duplicateCount, int64(dc))
 				}
@@ -34,12 +33,10 @@ func process() {
 
 		for _, f := range files {
 			fileCount++
-			//duplicateCount += processFile(f, extensionFileMap)
 			channel <- f
 		}
 		close(channel)
 		wg.Wait()
-
 	}
 
 	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
