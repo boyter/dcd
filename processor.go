@@ -2,114 +2,138 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
 
 func process() {
-	// Required to load the language information and need only be done once
-	//processor.ProcessConstants()
 	extensionFileMap := selectFiles()
 
-	var duplicateCount int
+	var duplicateCount int64
 	var fileCount int
-
-	var sb strings.Builder
 
 	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
 		// then loop each of the files
+
+		channel := make(chan duplicateFile)
+		var wg sync.WaitGroup
+
+		for i := 0; i < runtime.NumCPU(); i++ {
+			wg.Add(1)
+			go func() {
+				for f := range channel {
+					dc := processFile(f, extensionFileMap)
+					atomic.AddInt64(&duplicateCount, int64(dc))
+				}
+				wg.Done()
+			}()
+		}
+
 		for _, f := range files {
 			fileCount++
-			// Filter out all of the possible candidates that could be what we are looking for
-			possibleCandidates := map[string]int{}
-			// find the candidate files that have at least one matching line
-			for _, h := range f.LineHashes {
-				c, ok := hashToFilesExt[f.Extension][uint32(reduceSimhash(h))]
+			//duplicateCount += processFile(f, extensionFileMap)
+			channel <- f
+		}
+		close(channel)
+		wg.Wait()
 
-				if ok {
-					for _, s := range c {
-						possibleCandidates[s] = possibleCandidates[s] + 1
-					}
-				}
-			}
+	}
 
-			// Now we have the list, filter out those that cannot be correct because they
-			// don't have as many matching lines as we are looking for
-			var cleanCandidates []string
-			for k, v := range possibleCandidates {
-				if v > minMatchLength {
-					cleanCandidates = append(cleanCandidates, k)
-				}
-			}
-			cleanCandidates = removeStringDuplicates(cleanCandidates)
+	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
+}
 
-			// now we can compare this the file we are processing to all the candidate files
-			for _, candidate := range cleanCandidates {
-				var sameFile bool
+func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) int {
+	var sb strings.Builder
+	duplicateCount := 0
+	// Filter out all of the possible candidates that could be what we are looking for
+	possibleCandidates := map[string]int{}
+	// find the candidate files that have at least one matching line
+	for _, h := range f.LineHashes {
+		c, ok := hashToFilesExt[f.Extension][uint32(reduceSimhash(h))]
 
-				// if its the same file we need to ensure we know about it because otherwise we mark
-				// it all as being the same, which is probably not what is wanted
-				if candidate == f.Location {
-					sameFile = true
-
-					// user has the option to disable same file checking if they want
-					if !processSameFile {
-						continue
-					}
-				}
-
-				var c duplicateFile
-				// go and get the candidate file
-				for _, f := range extensionFileMap[f.Extension] {
-					if f.Location == candidate {
-						c = f
-					}
-				}
-
-				// comparison actually starts here
-				outer := make([][]bool, len(f.LineHashes), len(f.LineHashes))
-				for i1, line := range f.LineHashes {
-					//var inner []bool
-					inner := make([]bool, len(c.LineHashes), len(c.LineHashes))
-					for i2, line2 := range c.LineHashes {
-
-						// if its the same file, then we don't compare the same line because they will always be true
-						if sameFile && i1 == i2 {
-							//inner = append(inner, false)
-							inner[i2] = false
-							continue
-						}
-
-						// if the lines are the same then say they are with a true, NB need to look at simhash here
-						if line == line2 {
-							inner[i2] = true
-						} else {
-							inner[i2] = false
-						}
-					}
-					outer[i1] = inner
-				}
-
-				matches := identifyDuplicates(outer)
-				if len(matches) != 0 {
-					sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
-
-					for _, match := range matches {
-						duplicateCount += match.SourceEndLine - match.SourceStartLine
-						sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
-					}
-
-					if sb.Len() > 100_000 {
-						fmt.Println(sb.String())
-						sb = strings.Builder{}
-					}
-				}
+		if ok {
+			for _, s := range c {
+				possibleCandidates[s] = possibleCandidates[s] + 1
 			}
 		}
 	}
 
-	fmt.Println(sb.String())
-	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
+	// Now we have the list, filter out those that cannot be correct because they
+	// don't have as many matching lines as we are looking for
+	var cleanCandidates []string
+	for k, v := range possibleCandidates {
+		if v > minMatchLength {
+			cleanCandidates = append(cleanCandidates, k)
+		}
+	}
+	cleanCandidates = removeStringDuplicates(cleanCandidates)
+
+	// now we can compare this the file we are processing to all the candidate files
+	for _, candidate := range cleanCandidates {
+		var sameFile bool
+
+		// if its the same file we need to ensure we know about it because otherwise we mark
+		// it all as being the same, which is probably not what is wanted
+		if candidate == f.Location {
+			sameFile = true
+
+			// user has the option to disable same file checking if they want
+			if !processSameFile {
+				continue
+			}
+		}
+
+		var c duplicateFile
+		// go and get the candidate file
+		for _, f := range extensionFileMap[f.Extension] {
+			if f.Location == candidate {
+				c = f
+			}
+		}
+
+		// comparison actually starts here
+		outer := make([][]bool, len(f.LineHashes))
+		for i1, line := range f.LineHashes {
+			//var inner []bool
+			inner := make([]bool, len(c.LineHashes))
+			for i2, line2 := range c.LineHashes {
+
+				// if its the same file, then we don't compare the same line because they will always be true
+				if sameFile && i1 == i2 {
+					//inner = append(inner, false)
+					inner[i2] = false
+					continue
+				}
+
+				// if the lines are the same then say they are with a true, NB need to look at simhash here
+				if line == line2 {
+					inner[i2] = true
+				} else {
+					inner[i2] = false
+				}
+			}
+			outer[i1] = inner
+		}
+
+		matches := identifyDuplicates(outer)
+		if len(matches) != 0 {
+			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
+
+			for _, match := range matches {
+				duplicateCount += match.SourceEndLine - match.SourceStartLine
+				sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+			}
+		}
+	}
+
+	if sb.Len() != 0 {
+		fmt.Print(sb.String())
+	}
+
+	return duplicateCount
 }
 
 var hashToFiles map[uint32][]string
