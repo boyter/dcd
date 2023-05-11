@@ -94,13 +94,11 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 		// comparison actually starts here
 		outer := make([][]bool, len(f.LineHashes))
 		for i1, line := range f.LineHashes {
-			//var inner []bool
 			inner := make([]bool, len(c.LineHashes))
 			for i2, line2 := range c.LineHashes {
 
-				// if its the same file, then we don't compare the same line because they will always be true
+				// if it's the same file, then we don't compare the same line because they will always be true
 				if sameFile && i1 == i2 {
-					//inner = append(inner, false)
 					inner[i2] = false
 					continue
 				}
@@ -118,7 +116,6 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 		matches := identifyDuplicates(outer)
 		if len(matches) != 0 {
 			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
-
 			for _, match := range matches {
 				duplicateCount += match.SourceEndLine - match.SourceStartLine
 				sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
