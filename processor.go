@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 )
 
 func process() {
@@ -11,6 +12,8 @@ func process() {
 
 	var duplicateCount int
 	var fileCount int
+
+	var sb strings.Builder
 
 	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
@@ -89,18 +92,24 @@ func process() {
 
 				matches := identifyDuplicates(outer)
 				if len(matches) != 0 {
-					fmt.Println(fmt.Sprintf("Found duplicate lines in %s:", f.Location))
+					sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 
 					for _, match := range matches {
 						duplicateCount += match.SourceEndLine - match.SourceStartLine
-						fmt.Println(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+						sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+					}
+
+					if sb.Len() > 100_000 {
+						fmt.Println(sb.String())
+						sb = strings.Builder{}
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Println("\nFound", duplicateCount, "duplicate lines in", fileCount, "files")
+	fmt.Println(sb.String())
+	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
 }
 
 var hashToFiles map[uint32][]string
@@ -191,7 +200,8 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 
 	for i := 0; i < len(outer); i++ {
 		for j := 0; j < len(outer[i]); j++ {
-			// if we we find a pixel that is marked as on then lets start looking
+			// if we find a pixel that is marked as on then lets start looking
+
 			if outer[i][j] {
 				count := 1
 				// from this position start walking down and to the right to see how long a match we can find

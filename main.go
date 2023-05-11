@@ -8,7 +8,7 @@ import (
 
 func main() {
 	//f, _ := os.Create("profile.pprof")
-	//pprof.StartCPUProfile(f)
+	//_ = pprof.StartCPUProfile(f)
 	//defer pprof.StopCPUProfile()
 
 	rootCmd := &cobra.Command{

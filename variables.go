@@ -2,7 +2,7 @@ package main
 
 var minMatchLength = 6
 var processSameFile = false
-var version = "1.0.0"
+var version = "1.1.0"
 var dirFilePaths = []string{}
 var allowListExtensions = []string{}
 var locationExcludePattern = []string{}
