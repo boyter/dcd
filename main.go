@@ -86,6 +86,13 @@ func main() {
 		false,
 		"verbose output",
 	)
+	flags.Uint8VarP(
+		&fuzzValue,
+		"fuzz",
+		"f",
+		0,
+		"fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

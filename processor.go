@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/mfonda/simhash"
 	"runtime"
 	"strings"
 	"sync"
@@ -91,29 +92,9 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 			}
 		}
 
-		// comparison actually starts here
-		outer := make([][]bool, len(f.LineHashes))
-		for i1, line := range f.LineHashes {
-			inner := make([]bool, len(c.LineHashes))
-			for i2, line2 := range c.LineHashes {
+		outer := identifyDuplicates(f, c, sameFile, fuzzValue)
 
-				// if it's the same file, then we don't compare the same line because they will always be true
-				if sameFile && i1 == i2 {
-					inner[i2] = false
-					continue
-				}
-
-				// if the lines are the same then say they are with a true, NB need to look at simhash here
-				if line == line2 {
-					inner[i2] = true
-				} else {
-					inner[i2] = false
-				}
-			}
-			outer[i1] = inner
-		}
-
-		matches := identifyDuplicates(outer)
+		matches := identifyDuplicateRuns(outer)
 		if len(matches) != 0 {
 			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 			for _, match := range matches {
@@ -128,6 +109,39 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 	}
 
 	return duplicateCount
+}
+
+func identifyDuplicates(f duplicateFile, c duplicateFile, sameFile bool, fuzz uint8) [][]bool {
+	// comparison actually starts here
+	outer := make([][]bool, len(f.LineHashes))
+	for i1, line := range f.LineHashes {
+		inner := make([]bool, len(c.LineHashes))
+		for i2, line2 := range c.LineHashes {
+
+			// if it's the same file, then we don't compare the same line because they will always be true
+			if sameFile && i1 == i2 {
+				inner[i2] = false
+				continue
+			}
+
+			// if the lines are the same then say they are with a true, NB need to look at simhash here
+			if fuzz != 0 {
+				if simhash.Compare(line, line2) <= fuzz {
+					inner[i2] = true
+				} else {
+					inner[i2] = false
+				}
+			} else {
+				if line == line2 {
+					inner[i2] = true
+				} else {
+					inner[i2] = false
+				}
+			}
+		}
+		outer[i1] = inner
+	}
+	return outer
 }
 
 var hashToFiles map[uint32][]string
@@ -209,7 +223,7 @@ func reduceSimhash(hash uint64) uint64 {
 // positive match, then if found check to the right
 // TODO include checking down or right as well, as that could be considered
 // a match
-func identifyDuplicates(outer [][]bool) []duplicateMatch {
+func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 	var matches []duplicateMatch
 
 	// stores the endings that have already been used so we don't
@@ -223,7 +237,6 @@ func identifyDuplicates(outer [][]bool) []duplicateMatch {
 			if outer[i][j] {
 				count := 1
 				// from this position start walking down and to the right to see how long a match we can find
-				// TODO can speed this up by checking if this pixel is in the endings... already
 				for k := 1; k < len(outer); k++ {
 					if (i+k < len(outer) && j+k < len(outer[i])) && outer[i+k][j+k] {
 						count++

@@ -11,6 +11,7 @@ var ignoreGitIgnore = false
 var minifiedLineByteLength = 255
 var maxReadSizeBytes int64 = 10000000
 var verbose = false
+var fuzzValue uint8 = 0
 
 // to be used later for disabling dcd when needed
 const (
