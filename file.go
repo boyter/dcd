@@ -68,7 +68,7 @@ func selectFiles() map[string][]duplicateFile {
 
 		content := readFileContent(fi, err, f)
 
-		// if there is nothing in the file lets not bother indexing it because its not searchable either
+		// if there is nothing in the file lets not bother with anything
 		if len(content) == 0 {
 			if verbose {
 				fmt.Println(fmt.Sprintf("empty file so moving on %s", f.Location))
@@ -77,9 +77,14 @@ func selectFiles() map[string][]duplicateFile {
 		}
 
 		// Check if this file is binary by checking for nul byte and if so bail out
-		// this is how GNU Grep, git and ripgrep check for binary files
+		// this is how GNU Grep, git and ripgrep binaryCheck for binary files
 		isBinary := false
-		for _, b := range content {
+
+		binaryCheck := content
+		if len(binaryCheck) > 10_000 {
+			binaryCheck = content[:10_000]
+		}
+		for _, b := range binaryCheck {
 			if b == 0 {
 				isBinary = true
 				continue
