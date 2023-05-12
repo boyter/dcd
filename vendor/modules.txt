@@ -1,20 +1,23 @@
 # github.com/boyter/gocodewalker v1.1.0
-## explicit
+## explicit; go 1.20
 github.com/boyter/gocodewalker
 github.com/boyter/gocodewalker/go-gitignore
 # github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
+## explicit
 github.com/danwakefield/fnmatch
 # github.com/inconshreveable/mousetrap v1.0.0
+## explicit
 github.com/inconshreveable/mousetrap
 # github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 ## explicit
 github.com/mfonda/simhash
 # github.com/spf13/cobra v1.0.0
-## explicit
+## explicit; go 1.12
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
+## explicit
 github.com/spf13/pflag
 # golang.org/x/text v0.3.3
-## explicit
+## explicit; go 1.11
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
