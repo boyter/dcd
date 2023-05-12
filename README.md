@@ -34,7 +34,9 @@ Command line usage of `dcd` is designed to be as simple as possible.
 Full details can be found in `dcd --help` or `dcd -h`. Note that the below reflects the state of master not a release.
 
 ```
-Version 1.0.0
+$ dcd -h
+dcd
+Version 1.1.0
 Ben Boyter <ben@boyter.org>
 
 Usage:
@@ -42,6 +44,7 @@ Usage:
 
 Flags:
   -x, --exclude-pattern strings   file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]
+  -f, --fuzz uint8                fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
   -h, --help                      help for dcd
   -i, --include-ext strings       limit to file extensions [comma separated list: e.g. go,java,js]
   -m, --match-length int          min match length (default 6)
@@ -52,6 +55,7 @@ Flags:
       --process-same-file         
   -v, --verbose                   verbose output
       --version                   version for dcd
+
 ```
 
 Output should look something like the below for any project
@@ -84,12 +88,15 @@ Found duplicate lines in processor/filereader.go:
 Found 98634 duplicate lines in 140 files
 ```
 
-Note that you don't have to specify the directory you want to run against. Running `dcd` will assume you want to run against the current directory.
+Note that you don't have to specify the directory you want to run against. Running `dcd` will assume you want to 
+run against the current directory.
 
 ### Ignore Files
 
 `dcd` mostly supports .ignore files inside directories that it scans. This is similar to how ripgrep, ag and tokei work. 
-.ignore files are 100% the same as .gitignore files with the same syntax, and as such `dcd` will ignore files and directories listed in them. You can add .ignore files to ignore things like vendored dependency checked in files and such. The idea is allowing you to add a file or folder to git and have ignored in the count.
+.ignore files are 100% the same as .gitignore files with the same syntax, and as such `dcd` will ignore files and directories
+listed in them. You can add .ignore files to ignore things like vendored dependency checked in files and such. 
+The idea is allowing you to add a file or folder to git and have ignored in the count.
 
 ### Development
 
