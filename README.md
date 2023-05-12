@@ -19,7 +19,7 @@ If you are comfortable using Go and have >= 1.19 installed:
 
 #### Manual
 
-Binaries for Windows, GNU/Linux and macOS for both i386 and x86_64 and ARM64 machines are available from the [releases](https://github.com/boyter/scc/releases) page.
+Binaries for GNU/Linux and macOS for both i386 and x86_64 and ARM64 machines are available from the [releases](https://github.com/boyter/scc/releases) page.
 
 ### Pitch
 
