@@ -26,7 +26,7 @@ Binaries for GNU/Linux and macOS for both i386 and x86_64 and ARM64 machines are
 Why use `dcd`?
 
 - It's reasonably fast and works with large projects 
-- Works very well across multiple platforms without slowdown (Windows, Linux, macOS)
+- Works very well across multiple platforms without slowdown (GNU/Linux, macOS)
 
 ### Usage
 
