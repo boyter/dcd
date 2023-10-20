@@ -15,7 +15,9 @@ Licensed under [GNU Affero General Public License 3.0](https://www.gnu.org/licen
 
 If you are comfortable using Go and have >= 1.19 installed:
 
-`$ go get -u github.com/boyter/dcd/`
+```shell
+go install github.com/boyter/dcd@latest
+```
 
 #### Manual
 
