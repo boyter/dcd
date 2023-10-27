@@ -21,7 +21,7 @@ go install github.com/boyter/dcd@latest
 
 #### Manual
 
-Binaries for GNU/Linux and macOS for both i386 and x86_64 and ARM64 machines are available from the [releases](https://github.com/boyter/scc/releases) page.
+Binaries for GNU/Linux and macOS for both i386 and x86_64 and ARM64 machines are available from the [releases](https://github.com/boyter/dcd/releases) page.
 
 ### Pitch
 
