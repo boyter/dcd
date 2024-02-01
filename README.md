@@ -9,6 +9,10 @@ It is however open source.
 
 Licensed under [GNU Affero General Public License 3.0](https://www.gnu.org/licenses/agpl-3.0.html).
 
+### Support
+
+Using `dcd` commercially? If you want priority support for `scc` you can purchase a years worth https://boyter.gumroad.com/l/wajuc which entitles you to priority direct email support from the developer.
+
 ### Install
 
 #### Go Get
