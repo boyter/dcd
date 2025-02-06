@@ -1,8 +1,8 @@
 Duplicate Code Detector (dcd)
 -----------------------------
 
-A tool similar to simian http://www.harukizaemon.com/simian/ which is designed to identify duplicate code inside a project.
-It is however open source.
+A tool similar to simian http://www.harukizaemon.com/simian/ now found at https://simian.quandarypeak.com/ which is designed to identify duplicate code inside a project.
+It is however under a free software license.
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/boyter/dcd)](https://goreportcard.com/report/github.com/boyter/dcd)
 [![Dcd Count Badge](https://sloc.xyz/github/boyter/dcd/)](https://github.com/boyter/dcd/)
