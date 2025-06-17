@@ -2,25 +2,29 @@
 // such as walking the file tree obeying .ignore and .gitignore files
 // or looking for the root directory assuming already in a git project
 
-// SPDX-License-Identifier: MIT OR Unlicense
+// SPDX-License-Identifier: MIT
 
 package gocodewalker
 
 import (
 	"bytes"
 	"errors"
-	"github.com/boyter/gocodewalker/go-gitignore"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/boyter/gocodewalker/go-gitignore"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
-	GitIgnore = ".gitignore"
-	Ignore    = ".ignore"
+	GitIgnore  = ".gitignore"
+	Ignore     = ".ignore"
+	GitModules = ".gitmodules"
 )
 
 // ErrTerminateWalk error which indicates that the walker was terminated
@@ -32,10 +36,13 @@ type File struct {
 	Filename string
 }
 
+var semaphoreCount = 8
+
 type FileWalker struct {
 	fileListQueue          chan *File
 	errorsHandler          func(error) bool // If returns true will continue to process where possible, otherwise returns if possible
 	directory              string
+	directories            []string
 	LocationExcludePattern []string // Case-sensitive patterns which exclude directory/file matches
 	IncludeDirectory       []string
 	ExcludeDirectory       []string // Paths to always ignore such as .git,.svn and .hg
@@ -50,11 +57,16 @@ type FileWalker struct {
 	walkMutex              sync.Mutex
 	terminateWalking       bool
 	isWalking              bool
-	IgnoreIgnoreFile       bool // Should .ignore files be respected?
-	IgnoreGitIgnore        bool // Should .gitignore files be respected?
-	IncludeHidden          bool // Should hidden files and directories be included/walked
+	IgnoreIgnoreFile       bool     // Should .ignore files be respected?
+	IgnoreGitIgnore        bool     // Should .gitignore files be respected?
+	IgnoreGitModules       bool     // Should .gitmodules files be respected?
+	CustomIgnore           []string // Custom ignore files
+	IncludeHidden          bool     // Should hidden files and directories be included/walked
 	osOpen                 func(name string) (*os.File, error)
 	osReadFile             func(name string) ([]byte, error)
+	countingSemaphore      chan bool
+	semaphoreCount         int
+	MaxDepth               int
 }
 
 // NewFileWalker constructs a filewalker, which will walk the supplied directory
@@ -80,9 +92,61 @@ func NewFileWalker(directory string, fileListQueue chan *File) *FileWalker {
 		isWalking:              false,
 		IgnoreIgnoreFile:       false,
 		IgnoreGitIgnore:        false,
+		CustomIgnore:           []string{},
+		IgnoreGitModules:       false,
 		IncludeHidden:          false,
 		osOpen:                 os.Open,
 		osReadFile:             os.ReadFile,
+		countingSemaphore:      make(chan bool, semaphoreCount),
+		semaphoreCount:         semaphoreCount,
+		MaxDepth:               -1,
+	}
+}
+
+// NewParallelFileWalker constructs a filewalker, which will walk the supplied directories in parallel
+// and output File results to the supplied queue as it finds them
+func NewParallelFileWalker(directories []string, fileListQueue chan *File) *FileWalker {
+	return &FileWalker{
+		fileListQueue:          fileListQueue,
+		errorsHandler:          func(e error) bool { return true }, // a generic one that just swallows everything
+		directories:            directories,
+		LocationExcludePattern: nil,
+		IncludeDirectory:       nil,
+		ExcludeDirectory:       nil,
+		IncludeFilename:        nil,
+		ExcludeFilename:        nil,
+		IncludeDirectoryRegex:  nil,
+		ExcludeDirectoryRegex:  nil,
+		IncludeFilenameRegex:   nil,
+		ExcludeFilenameRegex:   nil,
+		AllowListExtensions:    nil,
+		ExcludeListExtensions:  nil,
+		walkMutex:              sync.Mutex{},
+		terminateWalking:       false,
+		isWalking:              false,
+		IgnoreIgnoreFile:       false,
+		IgnoreGitIgnore:        false,
+		CustomIgnore:           []string{},
+		IgnoreGitModules:       false,
+		IncludeHidden:          false,
+		osOpen:                 os.Open,
+		osReadFile:             os.ReadFile,
+		countingSemaphore:      make(chan bool, semaphoreCount),
+		semaphoreCount:         semaphoreCount,
+		MaxDepth:               -1,
+	}
+}
+
+// SetConcurrency sets the concurrency when walking
+// which controls the number of goroutines that
+// walk directories concurrently
+// by default it is set to 8
+// must be a whole integer greater than 0
+func (f *FileWalker) SetConcurrency(i int) {
+	f.walkMutex.Lock()
+	defer f.walkMutex.Unlock()
+	if i >= 1 {
+		f.semaphoreCount = i
 	}
 }
 
@@ -122,7 +186,27 @@ func (f *FileWalker) Start() error {
 	f.isWalking = true
 	f.walkMutex.Unlock()
 
-	err := f.walkDirectoryRecursive(f.directory, []gitignore.GitIgnore{}, []gitignore.GitIgnore{})
+	// we now set the counting semaphore based on the count
+	// done here because it should not change while walking
+	f.countingSemaphore = make(chan bool, semaphoreCount)
+
+	var err error
+	if len(f.directories) != 0 {
+		eg := errgroup.Group{}
+		for _, directory := range f.directories {
+			d := directory // capture var
+			eg.Go(func() error {
+				return f.walkDirectoryRecursive(0, d, []gitignore.GitIgnore{}, []gitignore.GitIgnore{}, []gitignore.GitIgnore{}, []gitignore.GitIgnore{})
+			})
+		}
+
+		err = eg.Wait()
+	} else {
+		if f.directory != "" {
+			err = f.walkDirectoryRecursive(0, f.directory, []gitignore.GitIgnore{}, []gitignore.GitIgnore{}, []gitignore.GitIgnore{}, []gitignore.GitIgnore{})
+		}
+	}
+
 	close(f.fileListQueue)
 
 	f.walkMutex.Lock()
@@ -132,7 +216,25 @@ func (f *FileWalker) Start() error {
 	return err
 }
 
-func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitignore.GitIgnore, ignores []gitignore.GitIgnore) error {
+func (f *FileWalker) walkDirectoryRecursive(iteration int,
+	directory string,
+	gitignores []gitignore.GitIgnore,
+	ignores []gitignore.GitIgnore,
+	moduleIgnores []gitignore.GitIgnore,
+	customIgnores []gitignore.GitIgnore) error {
+
+	// implement max depth option
+	if f.MaxDepth != -1 && iteration >= f.MaxDepth {
+		return nil
+	}
+
+	if iteration == 1 {
+		f.countingSemaphore <- true
+		defer func() {
+			<-f.countingSemaphore
+		}()
+	}
+
 	// NB have to call unlock not using defer because method is recursive
 	// and will deadlock if not done manually
 	f.walkMutex.Lock()
@@ -161,8 +263,8 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 		return err
 	}
 
-	files := []os.DirEntry{}
-	dirs := []os.DirEntry{}
+	files := []fs.DirEntry{}
+	dirs := []fs.DirEntry{}
 
 	// We want to break apart the files and directories from the
 	// return as we loop over them differently and this avoids some
@@ -175,7 +277,7 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 		}
 	}
 
-	// Pull out all ignore and gitignore files and add them
+	// Pull out all ignore, gitignore and gitmodule files and add them
 	// to out collection of gitignores to be applied for this pass
 	// and any subdirectories
 	// Since they can apply to the current list of files we need to ensure
@@ -226,6 +328,60 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 				ignores = append(ignores, gitIgnore)
 			}
 		}
+
+		// this should only happen on the first iteration
+		// because there should be one .gitmodules file per repository
+		// however we also need to support someone running in a directory of
+		// projects that have multiple repositories or in a go vendor
+		// repository etc... hence check every time
+		if !f.IgnoreGitModules {
+			if file.Name() == GitModules {
+				// now we need to open and parse the file
+				c, err := f.osReadFile(filepath.Join(directory, file.Name()))
+				if err != nil {
+					if f.errorsHandler(err) {
+						continue // if asked to ignore it lets continue
+					}
+					return err
+				}
+
+				abs, err := filepath.Abs(directory)
+				if err != nil {
+					if f.errorsHandler(err) {
+						continue // if asked to ignore it lets continue
+					}
+					return err
+				}
+
+				for _, gm := range extractGitModuleFolders(string(c)) {
+					gitIgnore := gitignore.New(strings.NewReader(gm), abs, nil)
+					moduleIgnores = append(moduleIgnores, gitIgnore)
+				}
+			}
+		}
+
+		for _, ci := range f.CustomIgnore {
+			if file.Name() == ci {
+				c, err := f.osReadFile(filepath.Join(directory, file.Name()))
+				if err != nil {
+					if f.errorsHandler(err) {
+						continue // if asked to ignore it lets continue
+					}
+					return err
+				}
+
+				abs, err := filepath.Abs(directory)
+				if err != nil {
+					if f.errorsHandler(err) {
+						continue // if asked to ignore it lets continue
+					}
+					return err
+				}
+
+				gitIgnore := gitignore.New(bytes.NewReader(c), abs, nil)
+				customIgnores = append(customIgnores, gitIgnore)
+			}
+		}
 	}
 
 	// Process files first to start feeding whatever process is consuming
@@ -246,6 +402,13 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 		}
 
 		for _, ignore := range ignores {
+			// same rules as above
+			if ignore.MatchIsDir(joined, false) != nil {
+				shouldIgnore = ignore.Ignore(joined)
+			}
+		}
+
+		for _, ignore := range customIgnores {
 			// same rules as above
 			if ignore.MatchIsDir(joined, false) != nil {
 				shouldIgnore = ignore.Ignore(joined)
@@ -291,7 +454,7 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 
 		// Ignore hidden files
 		if !f.IncludeHidden {
-			s, err := IsHidden(file, directory)
+			s, err := IsHiddenDirEntry(file, directory)
 			if err != nil {
 				if !f.errorsHandler(err) {
 					return err
@@ -358,6 +521,9 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 		}
 	}
 
+	// if we are the 1st iteration IE not the root, we run in parallel
+	wg := sync.WaitGroup{}
+
 	// Now we process the directories after hopefully giving the
 	// channel some files to process
 	for _, dir := range dirs {
@@ -384,6 +550,18 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 				shouldIgnore = ignore.Ignore(joined)
 			}
 		}
+		for _, ignore := range customIgnores {
+			// same rules as above
+			if ignore.MatchIsDir(joined, true) != nil {
+				shouldIgnore = ignore.Ignore(joined)
+			}
+		}
+		for _, ignore := range moduleIgnores {
+			// same rules as above
+			if ignore.MatchIsDir(joined, true) != nil {
+				shouldIgnore = ignore.Ignore(joined)
+			}
+		}
 
 		// start by saying we didn't find it then check each possible
 		// choice to see if we did find it
@@ -403,7 +581,7 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 		// things like .git .hg and .svn
 		// Comes after include as it takes precedence
 		for _, deny := range f.ExcludeDirectory {
-			if dir.Name() == deny {
+			if isSuffixDir(joined, deny) {
 				shouldIgnore = true
 			}
 		}
@@ -428,7 +606,7 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 
 		// Ignore hidden directories
 		if !f.IncludeHidden {
-			s, err := IsHidden(dir, directory)
+			s, err := IsHiddenDirEntry(dir, directory)
 			if err != nil {
 				if !f.errorsHandler(err) {
 					return err
@@ -447,12 +625,22 @@ func (f *FileWalker) walkDirectoryRecursive(directory string, gitignores []gitig
 				}
 			}
 
-			err = f.walkDirectoryRecursive(joined, gitignores, ignores)
-			if err != nil {
-				return err
+			if iteration == 0 {
+				wg.Add(1)
+				go func(iteration int, directory string, gitignores []gitignore.GitIgnore, ignores []gitignore.GitIgnore) {
+					_ = f.walkDirectoryRecursive(iteration+1, joined, gitignores, ignores, moduleIgnores, customIgnores)
+					wg.Done()
+				}(iteration, joined, gitignores, ignores)
+			} else {
+				err = f.walkDirectoryRecursive(iteration+1, joined, gitignores, ignores, moduleIgnores, customIgnores)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
+
+	wg.Wait()
 
 	return nil
 }
