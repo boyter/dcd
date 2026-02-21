@@ -100,9 +100,9 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 			for _, match := range matches {
 				duplicateCount += match.Length
 				if match.GapCount > 0 {
-					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (matching lines %d, gaps %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length, match.GapCount))
+					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (matching lines %d, gaps %d)\n", match.SourceStartLine+1, match.SourceEndLine+1, match.TargetStartLine+1, match.TargetEndLine+1, c.Location, match.Length, match.GapCount))
 				} else {
-					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine+1, match.SourceEndLine+1, match.TargetStartLine+1, match.TargetEndLine+1, c.Location, match.Length))
 				}
 			}
 		}
