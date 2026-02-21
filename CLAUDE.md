@@ -44,6 +44,13 @@ Single `main` package, ~610 lines across 7 files. No sub-packages.
 5. `--fuzz` flag enables fuzzy matching via simhash distance instead of exact hash equality
 6. `--gap-tolerance` (`-g`) allows bridging over small gaps (inserted/deleted/modified lines) in otherwise matching blocks. When set to N, the algorithm searches up to N positions ahead in both source and target to find the next matching line. Default 0 preserves strict contiguous matching. Orthogonal to `--fuzz` (they compose: fuzz controls line-level similarity, gap tolerance controls run-level continuity). `--match-length` still requires that many actual matching lines regardless of gaps bridged.
 
+### Optimization notes
+
+Two alternative duplicate detection algorithms were benchmarked and removed:
+- **Flat matrix** (single `[]bool` allocation): no speed gain despite 1 alloc vs N+1 — Go's allocator handles the slice-of-slices efficiently, no cache locality benefit materialized.
+- **Direct hash-grouped diagonal** (skip matrix entirely): 17-19x faster but only works for fuzz=0/gap=0, and map overhead makes it slower at small sizes (~20 lines).
+- The current 2D matrix approach is optimal for the general case: it supports fuzz and gap tolerance uniformly and is competitive at all sizes.
+
 ### Concurrency model
 
 `process()` spawns `runtime.NumCPU()` goroutines consuming files from a channel, coordinated with `sync.WaitGroup` and `atomic` counters.

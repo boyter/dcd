@@ -475,3 +475,4 @@ func TestIdentifyDuplicates_SameFile(t *testing.T) {
 		t.Error("expected (2,0) to be true")
 	}
 }
+
