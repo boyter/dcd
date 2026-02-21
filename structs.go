@@ -13,4 +13,5 @@ type duplicateMatch struct {
 	TargetStartLine int
 	TargetEndLine   int
 	Length          int
+	GapCount        int
 }

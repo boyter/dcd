@@ -98,8 +98,12 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 		if len(matches) != 0 {
 			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 			for _, match := range matches {
-				duplicateCount += match.SourceEndLine - match.SourceStartLine
-				sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+				duplicateCount += match.Length
+				if match.GapCount > 0 {
+					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (matching lines %d, gaps %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length, match.GapCount))
+				} else {
+					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine, match.SourceEndLine, match.TargetStartLine, match.TargetEndLine, c.Location, match.Length))
+				}
 			}
 		}
 	}
@@ -230,48 +234,101 @@ func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 	// report smaller matches
 	endings := map[int][]int{}
 
-	for i := 0; i < len(outer); i++ {
-		for j := 0; j < len(outer[i]); j++ {
-			// if we find a pixel that is marked as on then lets start looking
+	rows := len(outer)
 
-			if outer[i][j] {
-				count := 1
-				// from this position start walking down and to the right to see how long a match we can find
-				for k := 1; k < len(outer); k++ {
-					if (i+k < len(outer) && j+k < len(outer[i])) && outer[i+k][j+k] {
-						count++
-					} else {
-						// if its not a match anymore, break but not before checking if we have
-						// a longer match than we are looking for and if so try to work on that
-						if count >= minMatchLength {
-							// check if the end is already in cos if so we can ignore its not as long
-							include := true
-							_, ok := endings[i+k]
-							if ok {
-								// check to see if in the list
-								for _, p := range endings[i+k] {
-									if p == j+k {
-										include = false
-									}
-								}
-							}
+	for i := 0; i < rows; i++ {
+		cols := len(outer[i])
+		for j := 0; j < cols; j++ {
+			if !outer[i][j] {
+				continue
+			}
 
-							// we need to also add the last one as being found as this should be the longest string
-							if include {
-								endings[i+k] = append(endings[i+k], j+k)
-								matches = append(matches, duplicateMatch{
-									SourceStartLine: i,
-									SourceEndLine:   i + k,
-									TargetStartLine: j,
-									TargetEndLine:   j + k,
-									Length:          count,
-								})
-							}
+			// Start a new run from this matching cell
+			matchCount := 1
+			gapCount := 0
+			bridgeCount := 0
+			ci, cj := i+1, j+1 // next position to check
+			lastI, lastJ := i, j // last confirmed match position
+
+			for ci < rows && cj < cols {
+				if outer[ci][cj] {
+					// Direct diagonal match
+					matchCount++
+					lastI, lastJ = ci, cj
+					ci++
+					cj++
+					continue
+				}
+
+				// No direct match — try gap bridging
+				if gapTolerance == 0 || bridgeCount >= maxGapBridges {
+					break
+				}
+
+				// Search nearby positions within the gap tolerance window
+				bestDI, bestDJ := -1, -1
+				bestDist := gapTolerance*2 + 1 // larger than any valid distance
+
+				for di := 0; di <= gapTolerance; di++ {
+					for dj := 0; dj <= gapTolerance; dj++ {
+						if di == 0 && dj == 0 {
+							continue
 						}
-
-						// we didn't match at this point so break out so we can move on to the next pixel
-						break
+						ni, nj := ci+di, cj+dj
+						if ni >= rows || nj >= cols {
+							continue
+						}
+						if !outer[ni][nj] {
+							continue
+						}
+						dist := di + dj
+						if dist < bestDist || (dist == bestDist && di == dj) {
+							bestDI, bestDJ = di, dj
+							bestDist = dist
+						}
 					}
+				}
+
+				if bestDI < 0 {
+					// No match found within tolerance
+					break
+				}
+
+				// Bridge the gap
+				bridgeCount++
+				gapCount += bestDI + bestDJ
+				ci += bestDI
+				cj += bestDJ
+				matchCount++
+				lastI, lastJ = ci, cj
+				ci++
+				cj++
+			}
+
+			// Report the match if long enough
+			if matchCount >= minMatchLength {
+				endI := lastI + 1
+				endJ := lastJ + 1
+
+				include := true
+				if ends, ok := endings[endI]; ok {
+					for _, p := range ends {
+						if p == endJ {
+							include = false
+						}
+					}
+				}
+
+				if include {
+					endings[endI] = append(endings[endI], endJ)
+					matches = append(matches, duplicateMatch{
+						SourceStartLine: i,
+						SourceEndLine:   endI,
+						TargetStartLine: j,
+						TargetEndLine:   endJ,
+						Length:          matchCount,
+						GapCount:        gapCount,
+					})
 				}
 			}
 		}

@@ -93,6 +93,19 @@ func main() {
 		0,
 		"fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match",
 	)
+	flags.IntVarP(
+		&gapTolerance,
+		"gap-tolerance",
+		"g",
+		0,
+		"allow gaps of up to N lines when matching duplicate blocks, bridging over inserted, deleted, or modified lines (0 = no gaps allowed)",
+	)
+	flags.IntVar(
+		&maxGapBridges,
+		"max-gap-bridges",
+		1,
+		"maximum number of gap bridges allowed per duplicate match (increase for noisier but more permissive matching)",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

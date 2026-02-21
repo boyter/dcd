@@ -12,6 +12,8 @@ var minifiedLineByteLength = 255
 var maxReadSizeBytes int64 = 10000000
 var verbose = false
 var fuzzValue uint8 = 0
+var gapTolerance = 0
+var maxGapBridges = 1
 
 // to be used later for disabling dcd when needed
 const (
