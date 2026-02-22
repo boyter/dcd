@@ -85,11 +85,14 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 			}
 		}
 
+		// Benchmark note (2026): replacing this loop with a map[string]duplicateFile
+		// lookup showed no measurable improvement — the cost is dominated by the
+		// matrix comparison that follows.
 		var c duplicateFile
-		// go and get the candidate file
 		for _, f := range extensionFileMap[f.Extension] {
 			if f.Location == candidate {
 				c = f
+				break
 			}
 		}
 
@@ -233,6 +236,11 @@ func reduceSimhash(hash uint64) uint64 {
 // If 1 were considered a match then the 3 diagonally indicate
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
+//
+// 3. Per-diagonal scanning (walk each diagonal once instead of re-scanning from
+//    every true cell): only 1.65x faster on multi-diagonal case, but 1.1-2.6x
+//    slower on single-diagonal and sparse matrices due to poor cache locality
+//    (diagonal vs row-by-row access) and overhead of walking empty diagonals.
 func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 	var matches []duplicateMatch
 

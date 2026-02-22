@@ -50,6 +50,11 @@ Two alternative duplicate detection algorithms were benchmarked and removed:
 - **Flat matrix** (single `[]bool` allocation): no speed gain despite 1 alloc vs N+1 — Go's allocator handles the slice-of-slices efficiently, no cache locality benefit materialized.
 - **Direct hash-grouped diagonal** (skip matrix entirely): 17-19x faster but only works for fuzz=0/gap=0, and map overhead makes it slower at small sizes (~20 lines).
 - The current 2D matrix approach is optimal for the general case: it supports fuzz and gap tolerance uniformly and is competitive at all sizes.
+- **Per-diagonal scanning** (`identifyDuplicateRunsDiagonal`): walks each diagonal once
+  instead of re-scanning from every true cell. Only 1.65x faster on multi-diagonal matrices,
+  but 1.1-2.6x slower on single-diagonal and sparse matrices. Row-by-row iteration in the
+  original has better cache locality than diagonal access patterns, and walking all diagonals
+  (including empty ones) adds overhead that exceeds the savings from avoiding redundant scans.
 
 ### Concurrency model
 
