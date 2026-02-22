@@ -87,7 +87,7 @@ func selectFiles() map[string][]duplicateFile {
 		for _, b := range binaryCheck {
 			if b == 0 {
 				isBinary = true
-				continue
+				break
 			}
 		}
 
@@ -129,7 +129,6 @@ func selectFiles() map[string][]duplicateFile {
 
 			if len(clean) > 3 {
 				addSimhashToFileExtDatabase(hash, ext, f.Location)
-				addSimhashToFileExtDatabase2(hash, ext, f.Location)
 			}
 			totalLines++
 		}
