@@ -113,6 +113,10 @@ func processFile(f duplicateFile) int {
 			continue
 		}
 
+		if fuzzValue == 0 && sharedHashCount(f.SortedUniqueHashes, c.SortedUniqueHashes) < minMatchLength {
+			continue
+		}
+
 		outer := identifyDuplicates(f, *c, sameFile, fuzzValue)
 
 		matches := identifyDuplicateRuns(outer)
@@ -134,6 +138,23 @@ func processFile(f duplicateFile) int {
 	}
 
 	return duplicateCount
+}
+
+func sharedHashCount(a, b []uint64) int {
+	count := 0
+	i, j := 0, 0
+	for i < len(a) && j < len(b) {
+		if a[i] == b[j] {
+			count++
+			i++
+			j++
+		} else if a[i] < b[j] {
+			i++
+		} else {
+			j++
+		}
+	}
+	return count
 }
 
 // Benchmark notes (2025): Two alternative algorithms were tested and removed.

@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"slices"
+	"strings"
+
 	"github.com/boyter/gocodewalker"
 	"github.com/mfonda/simhash"
-	"os"
-	"strings"
 )
 
 func readFileContent(fi os.FileInfo, err error, f *gocodewalker.File) []byte {
@@ -136,11 +138,17 @@ func selectFiles() map[string][]duplicateFile {
 			totalLines++
 		}
 
+		sortedUnique := make([]uint64, len(lineHashes))
+		copy(sortedUnique, lineHashes)
+		slices.Sort(sortedUnique)
+		sortedUnique = slices.Compact(sortedUnique)
+
 		extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
-			ID:         nextID,
-			Location:   f.Location,
-			Extension:  ext,
-			LineHashes: lineHashes,
+			ID:                 nextID,
+			Location:           f.Location,
+			Extension:          ext,
+			LineHashes:         lineHashes,
+			SortedUniqueHashes: sortedUnique,
 		})
 	}
 

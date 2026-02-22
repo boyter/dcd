@@ -1,10 +1,11 @@
 package main
 
 type duplicateFile struct {
-	ID         uint32
-	Location   string
-	Extension  string
-	LineHashes []uint64
+	ID                 uint32
+	Location           string
+	Extension          string
+	LineHashes         []uint64
+	SortedUniqueHashes []uint64
 }
 
 type duplicateMatch struct {
