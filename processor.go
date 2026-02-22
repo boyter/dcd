@@ -29,7 +29,7 @@ func process() {
 			go func() {
 				for f := range channel {
 					// then loop each of the files
-					dc := processFile(f, extensionFileMap)
+					dc := processFile(f)
 					atomic.AddInt64(&duplicateCount, int64(dc))
 				}
 				wg.Done()
@@ -47,7 +47,7 @@ func process() {
 	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
 }
 
-func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) int {
+func processFile(f duplicateFile) int {
 	if len(f.LineHashes) < minMatchLength {
 		return 0
 	}
@@ -55,7 +55,7 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 	var sb strings.Builder
 	duplicateCount := 0
 	// Filter out all of the possible candidates that could be what we are looking for
-	possibleCandidates := map[string]int{}
+	possibleCandidates := map[uint32]int{}
 	// Deduplicate hashes — repeated lines (}, blank, etc.) produce identical
 	// reduced hashes. Look up each unique hash once and multiply the count.
 	uniqueHashes := map[uint32]int{}
@@ -65,15 +65,15 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 	for hash, count := range uniqueHashes {
 		c, ok := hashToFilesExt[f.Extension][hash]
 		if ok {
-			for _, s := range c {
-				possibleCandidates[s] += count
+			for _, id := range c {
+				possibleCandidates[id] += count
 			}
 		}
 	}
 
 	// Now we have the list, filter out those that cannot be correct because they
 	// don't have as many matching lines as we are looking for
-	var cleanCandidates []string
+	var cleanCandidates []uint32
 	for k, v := range possibleCandidates {
 		if v > minMatchLength {
 			cleanCandidates = append(cleanCandidates, k)
@@ -81,12 +81,12 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 	}
 
 	// now we can compare this the file we are processing to all the candidate files
-	for _, candidate := range cleanCandidates {
+	for _, candidateID := range cleanCandidates {
 		var sameFile bool
 
 		// if its the same file we need to ensure we know about it because otherwise we mark
 		// it all as being the same, which is probably not what is wanted
-		if candidate == f.Location {
+		if candidateID == f.ID {
 			sameFile = true
 
 			// user has the option to disable same file checking if they want
@@ -96,33 +96,24 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 		}
 
 		if !duplicatesBothWays {
-			var pairKey string
-			if f.Location < candidate {
-				pairKey = f.Location + "\x00" + candidate
+			// Pack two uint32 IDs into one uint64 for pair dedup
+			var pairKey uint64
+			if f.ID < candidateID {
+				pairKey = uint64(f.ID)<<32 | uint64(candidateID)
 			} else {
-				pairKey = candidate + "\x00" + f.Location
+				pairKey = uint64(candidateID)<<32 | uint64(f.ID)
 			}
 			if _, seen := processedPairs.LoadOrStore(pairKey, struct{}{}); seen {
 				continue
 			}
 		}
 
-		// Benchmark note (2026): replacing this loop with a map[string]duplicateFile
-		// lookup showed no measurable improvement — the cost is dominated by the
-		// matrix comparison that follows.
-		var c duplicateFile
-		for _, f := range extensionFileMap[f.Extension] {
-			if f.Location == candidate {
-				c = f
-				break
-			}
-		}
-
-		if len(c.LineHashes) < minMatchLength {
+		c := fileByID[candidateID]
+		if c == nil || len(c.LineHashes) < minMatchLength {
 			continue
 		}
 
-		outer := identifyDuplicates(f, c, sameFile, fuzzValue)
+		outer := identifyDuplicates(f, *c, sameFile, fuzzValue)
 
 		matches := identifyDuplicateRuns(outer)
 		if len(matches) != 0 {
@@ -185,22 +176,22 @@ func identifyDuplicates(f duplicateFile, c duplicateFile, sameFile bool, fuzz ui
 	return outer
 }
 
-// contains extension, mapping to a map of simhashes to filenames NB the last string is causing GC annoyances
-var hashToFilesExt map[string]map[uint32][]string
+// contains extension, mapping to a map of simhashes to file IDs
+var hashToFilesExt map[string]map[uint32][]uint32
 
-func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
+func addSimhashToFileExtDatabase(hash uint64, ext string, fileID uint32) {
 	if hashToFilesExt == nil {
-		hashToFilesExt = map[string]map[uint32][]string{}
+		hashToFilesExt = map[string]map[uint32][]uint32{}
 	}
 	if hashToFilesExt[ext] == nil {
-		hashToFilesExt[ext] = map[uint32][]string{}
+		hashToFilesExt[ext] = map[uint32][]uint32{}
 	}
 	// reduce the hash size down which has a few effects
 	// the first is to make the map smaller since we can use a uint32 for storing the hash
 	// the second is that it makes the matching slightly fuzzy so we should group similar files together
 	// lastly it should increase the number of false positive matches when we go to explore the keyspace
 	hash = reduceSimhash(hash)
-	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], f)
+	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], fileID)
 }
 
 // reduceSimhash crunches a 64-bit simhash down to a smaller key for the

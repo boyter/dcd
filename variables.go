@@ -15,6 +15,7 @@ var fuzzValue uint8 = 0
 var gapTolerance = 0
 var maxGapBridges = 1
 var duplicatesBothWays = false
+var fileByID map[uint32]*duplicateFile
 
 // to be used later for disabling dcd when needed
 const (

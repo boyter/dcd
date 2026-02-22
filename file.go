@@ -48,6 +48,7 @@ func selectFiles() map[string][]duplicateFile {
 	extensionFileMap := map[string][]duplicateFile{}
 
 	var totalLines uint64
+	var nextID uint32
 
 	for f := range fileListQueue {
 		// for each file we want to read its contents, calculate its stats then pass that off to an upserter
@@ -120,6 +121,8 @@ func selectFiles() map[string][]duplicateFile {
 		ext := gocodewalker.GetExtension(f.Filename)
 		lines := strings.Split(string(content), "\n")
 
+		nextID++
+
 		var lineHashes []uint64
 		for i := 0; i < len(lines); i++ {
 			clean := strings.ToLower(spaceMap(lines[i]))
@@ -128,27 +131,24 @@ func selectFiles() map[string][]duplicateFile {
 			lineHashes = append(lineHashes, hash)
 
 			if len(clean) > 3 {
-				addSimhashToFileExtDatabase(hash, ext, f.Location)
+				addSimhashToFileExtDatabase(hash, ext, nextID)
 			}
 			totalLines++
 		}
 
-		_, ok := extensionFileMap[ext]
-		if ok {
-			extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
-				Filename:   f.Filename,
-				Location:   f.Location,
-				Extension:  ext,
-				LineHashes: lineHashes,
-			})
-		} else {
-			t := append([]duplicateFile{}, duplicateFile{
-				Filename:   f.Filename,
-				Location:   f.Location,
-				Extension:  ext,
-				LineHashes: lineHashes,
-			})
-			extensionFileMap[ext] = t
+		extensionFileMap[ext] = append(extensionFileMap[ext], duplicateFile{
+			ID:         nextID,
+			Location:   f.Location,
+			Extension:  ext,
+			LineHashes: lineHashes,
+		})
+	}
+
+	// Build fileByID lookup map — slice backing arrays are stable at this point
+	fileByID = make(map[uint32]*duplicateFile, nextID)
+	for _, files := range extensionFileMap {
+		for i := range files {
+			fileByID[files[i].ID] = &files[i]
 		}
 	}
 

@@ -1,7 +1,7 @@
 package main
 
 type duplicateFile struct {
-	Filename   string
+	ID         uint32
 	Location   string
 	Extension  string
 	LineHashes []uint64
