@@ -45,17 +45,25 @@ func process() {
 }
 
 func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) int {
+	if len(f.LineHashes) < minMatchLength {
+		return 0
+	}
+
 	var sb strings.Builder
 	duplicateCount := 0
 	// Filter out all of the possible candidates that could be what we are looking for
 	possibleCandidates := map[string]int{}
-	// find the candidate files that have at least one matching line
+	// Deduplicate hashes — repeated lines (}, blank, etc.) produce identical
+	// reduced hashes. Look up each unique hash once and multiply the count.
+	uniqueHashes := map[uint32]int{}
 	for _, h := range f.LineHashes {
-		c, ok := hashToFilesExt[f.Extension][uint32(reduceSimhash(h))]
-
+		uniqueHashes[uint32(reduceSimhash(h))]++
+	}
+	for hash, count := range uniqueHashes {
+		c, ok := hashToFilesExt[f.Extension][hash]
 		if ok {
 			for _, s := range c {
-				possibleCandidates[s] = possibleCandidates[s] + 1
+				possibleCandidates[s] += count
 			}
 		}
 	}
@@ -94,6 +102,10 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 				c = f
 				break
 			}
+		}
+
+		if len(c.LineHashes) < minMatchLength {
+			continue
 		}
 
 		outer := identifyDuplicates(f, c, sameFile, fuzzValue)
