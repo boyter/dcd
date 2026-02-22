@@ -106,6 +106,12 @@ func main() {
 		1,
 		"maximum number of gap bridges allowed per duplicate match (increase for noisier but more permissive matching)",
 	)
+	flags.BoolVar(
+		&duplicatesBothWays,
+		"duplicates-both-ways",
+		false,
+		"report duplicates from both file perspectives (default reports each pair once)",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

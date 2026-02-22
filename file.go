@@ -152,9 +152,5 @@ func selectFiles() map[string][]duplicateFile {
 		}
 	}
 
-	for k := range hashToFiles {
-		hashToFiles[k] = removeStringDuplicates(hashToFiles[k])
-	}
-
 	return extensionFileMap
 }

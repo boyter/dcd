@@ -10,6 +10,8 @@ import (
 	"github.com/mfonda/simhash"
 )
 
+var processedPairs sync.Map
+
 func process() {
 	extensionFileMap := selectFiles()
 
@@ -18,6 +20,7 @@ func process() {
 
 	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
+		processedPairs = sync.Map{}
 		channel := make(chan duplicateFile)
 		var wg sync.WaitGroup
 
@@ -76,7 +79,6 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 			cleanCandidates = append(cleanCandidates, k)
 		}
 	}
-	cleanCandidates = removeStringDuplicates(cleanCandidates)
 
 	// now we can compare this the file we are processing to all the candidate files
 	for _, candidate := range cleanCandidates {
@@ -89,6 +91,18 @@ func processFile(f duplicateFile, extensionFileMap map[string][]duplicateFile) i
 
 			// user has the option to disable same file checking if they want
 			if !processSameFile {
+				continue
+			}
+		}
+
+		if !duplicatesBothWays {
+			var pairKey string
+			if f.Location < candidate {
+				pairKey = f.Location + "\x00" + candidate
+			} else {
+				pairKey = candidate + "\x00" + f.Location
+			}
+			if _, seen := processedPairs.LoadOrStore(pairKey, struct{}{}); seen {
 				continue
 			}
 		}
@@ -171,8 +185,6 @@ func identifyDuplicates(f duplicateFile, c duplicateFile, sameFile bool, fuzz ui
 	return outer
 }
 
-var hashToFiles map[uint32][]string
-
 // contains extension, mapping to a map of simhashes to filenames NB the last string is causing GC annoyances
 var hashToFilesExt map[string]map[uint32][]string
 
@@ -191,14 +203,13 @@ func addSimhashToFileExtDatabase(hash uint64, ext string, f string) {
 	hashToFilesExt[ext][uint32(hash)] = append(hashToFilesExt[ext][uint32(hash)], f)
 }
 
-// This takes in the output of a simhash and crunches it down to a far smaller size,
-// in this case down to 6 digits of precision
-// used to reduce the keyspace required for the very large hash that may be required
+// reduceSimhash crunches a 64-bit simhash down to a smaller key for the
+// candidate-lookup index. Previously this used a loop dividing by 10 until
+// the value fit in 7 decimal digits (~9M buckets, ~13 divisions per call).
+// Now uses a 24-bit mask: single operation, uniform distribution across
+// ~16M buckets, and fewer false-positive candidate groupings.
 func reduceSimhash(hash uint64) uint64 {
-	for hash > 10_000_000 {
-		hash = hash / 10
-	}
-	return hash
+	return hash & 0xFFFFFF
 }
 
 // Duplicates consist of diagonal matches so
