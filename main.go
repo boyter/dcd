@@ -112,6 +112,12 @@ func main() {
 		false,
 		"report duplicates from both file perspectives (default reports each pair once)",
 	)
+	flags.StringVar(
+		&singleFilePath,
+		"file",
+		"",
+		"compare a single file against the rest of the codebase",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

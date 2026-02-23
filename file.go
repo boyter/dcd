@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -143,6 +144,18 @@ func processInputFile(f *gocodewalker.File, nextID *atomic.Uint32) *fileResult {
 }
 
 func selectFiles() map[string][]duplicateFile {
+	// If --file is set, resolve it and auto-filter to its extension
+	if singleFilePath != "" {
+		abs, err := filepath.Abs(singleFilePath)
+		if err == nil {
+			singleFilePath = abs
+		}
+		ext := gocodewalker.GetExtension(filepath.Base(singleFilePath))
+		if ext != "" {
+			allowListExtensions = []string{ext}
+		}
+	}
+
 	fileListQueue := make(chan *gocodewalker.File, 100)
 
 	fileWalker := gocodewalker.NewFileWalker(dirFilePaths[0], fileListQueue)
@@ -181,6 +194,13 @@ func selectFiles() map[string][]duplicateFile {
 	extensionFileMap := map[string][]duplicateFile{}
 	for r := range results {
 		extensionFileMap[r.file.Extension] = append(extensionFileMap[r.file.Extension], r.file)
+		// Don't index the single file — it's the source, not a candidate
+		if singleFilePath != "" {
+			absLoc, err := filepath.Abs(r.file.Location)
+			if err == nil && absLoc == singleFilePath {
+				continue
+			}
+		}
 		for _, he := range r.hashEntries {
 			addSimhashToFileExtDatabase(he.hash, he.ext, r.file.ID)
 		}

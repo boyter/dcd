@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -36,9 +37,29 @@ func process() {
 			}()
 		}
 
-		for _, f := range files {
-			fileCount++
-			channel <- f
+		if singleFilePath != "" {
+			// Only send the single file to workers
+			found := false
+			for _, f := range files {
+				abs, err := filepath.Abs(f.Location)
+				if err != nil {
+					continue
+				}
+				if abs == singleFilePath {
+					fileCount++
+					channel <- f
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Printf("file not found in project: %s\n", singleFilePath)
+			}
+		} else {
+			for _, f := range files {
+				fileCount++
+				channel <- f
+			}
 		}
 		close(channel)
 		wg.Wait()
