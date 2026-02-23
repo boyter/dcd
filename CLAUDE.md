@@ -32,7 +32,7 @@ Single `main` package, ~610 lines across 7 files. No sub-packages.
 - **file.go** — File walking (via `gocodewalker`), content reading, simhash computation, binary/minified file filtering
 - **structs.go** — `duplicateFile` and `duplicateMatch` types
 - **variables.go** — Global config variables (set from CLI flags)
-- **helper.go** — Utility functions (`removeStringDuplicates`, `spaceMap`)
+- **helper.go** — Utility functions (`spaceMap`)
 - **processor_test.go** — Unit tests for `identifyDuplicateRuns` and `identifyDuplicates`
 
 ### Detection algorithm
