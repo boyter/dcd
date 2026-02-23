@@ -178,7 +178,7 @@ func sharedHashCount(a, b []uint64) int {
 	return count
 }
 
-// Benchmark notes (2025): Two alternative algorithms were tested and removed.
+// Benchmark notes: Two alternative algorithms were tested and removed.
 // 1. Flat matrix (single []bool): identical speed despite 1 alloc vs N+1 — Go's
 //    allocator handles the small slice-of-slices efficiently, no cache benefit.
 // 2. Direct hash-grouped diagonal (skip matrix): 17-19x faster for fuzz=0/gap=0
