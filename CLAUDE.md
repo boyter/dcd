@@ -38,7 +38,7 @@ Single `main` package, ~610 lines across 7 files. No sub-packages.
 ### Detection algorithm
 
 1. Files are grouped by extension and each line is normalized (lowercased, whitespace stripped) then hashed via simhash
-2. A global hash→filename index (`hashToFilesExt`) enables fast candidate filtering
+2. A global hash→fileID (uint32) index (`hashToFilesExt`) enables fast candidate filtering
 3. For each file pair sharing enough matching line hashes, a 2D boolean matrix is built comparing all lines
 4. Diagonal runs in the matrix identify contiguous duplicate sequences (inspired by [this paper](https://ieeexplore.ieee.org/document/792593))
 5. `--fuzz` flag enables fuzzy matching via simhash distance instead of exact hash equality
