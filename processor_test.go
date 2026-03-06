@@ -454,6 +454,175 @@ func TestIdentifyDuplicateRuns_GapBridgeCapZero(t *testing.T) {
 	}
 }
 
+func TestIdentifyDuplicateRuns_HoleTolerance_SingleHole(t *testing.T) {
+	oldHole := maxHoleSize
+	oldMin := minMatchLength
+	maxHoleSize = 1
+	minMatchLength = 3
+	defer func() {
+		maxHoleSize = oldHole
+		minMatchLength = oldMin
+	}()
+
+	// Diagonal with a modified line at (2,2): stays on diagonal but doesn't match
+	// Matches: (0,0), (1,1), hole, (3,3), (4,4)
+	matrix := buildMatrix(
+		"10000",
+		"01000",
+		"00000",
+		"00010",
+		"00001",
+	)
+
+	matches := identifyDuplicateRuns(matrix)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %+v", len(matches), matches)
+	}
+	m := matches[0]
+	if m.Length != 4 {
+		t.Errorf("length: got %d, want 4", m.Length)
+	}
+	if m.HoleCount != 1 {
+		t.Errorf("hole count: got %d, want 1", m.HoleCount)
+	}
+	if m.GapCount != 0 {
+		t.Errorf("gap count: got %d, want 0", m.GapCount)
+	}
+}
+
+func TestIdentifyDuplicateRuns_HoleTolerance_ConsecutiveHolesExceed(t *testing.T) {
+	oldHole := maxHoleSize
+	oldMin := minMatchLength
+	maxHoleSize = 1
+	minMatchLength = 3
+	defer func() {
+		maxHoleSize = oldHole
+		minMatchLength = oldMin
+	}()
+
+	// Two consecutive holes at (2,2) and (3,3) — exceeds maxHoleSize=1
+	// Should split: (0,0),(1,1) = 2 (too short), (4,4),(5,5),(6,6) = 3
+	matrix := buildMatrix(
+		"1000000",
+		"0100000",
+		"0000000",
+		"0000000",
+		"0000100",
+		"0000010",
+		"0000001",
+	)
+
+	matches := identifyDuplicateRuns(matrix)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %+v", len(matches), matches)
+	}
+	m := matches[0]
+	if m.Length != 3 {
+		t.Errorf("length: got %d, want 3", m.Length)
+	}
+	if m.SourceStartLine != 4 || m.SourceEndLine != 7 {
+		t.Errorf("source lines: got %d-%d, want 4-7", m.SourceStartLine, m.SourceEndLine)
+	}
+}
+
+func TestIdentifyDuplicateRuns_HoleTolerance_LargerHoleSize(t *testing.T) {
+	oldHole := maxHoleSize
+	oldMin := minMatchLength
+	maxHoleSize = 2
+	minMatchLength = 3
+	defer func() {
+		maxHoleSize = oldHole
+		minMatchLength = oldMin
+	}()
+
+	// Two consecutive holes — within maxHoleSize=2
+	matrix := buildMatrix(
+		"1000000",
+		"0100000",
+		"0000000",
+		"0000000",
+		"0000100",
+		"0000010",
+		"0000001",
+	)
+
+	matches := identifyDuplicateRuns(matrix)
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 match, got %d: %+v", len(matches), matches)
+	}
+	m := matches[0]
+	if m.Length != 5 {
+		t.Errorf("length: got %d, want 5", m.Length)
+	}
+	if m.HoleCount != 2 {
+		t.Errorf("hole count: got %d, want 2", m.HoleCount)
+	}
+}
+
+func TestIdentifyDuplicateRuns_HoleAndGapCombined(t *testing.T) {
+	oldHole := maxHoleSize
+	oldGap := gapTolerance
+	oldMin := minMatchLength
+	oldBridges := maxGapBridges
+	maxHoleSize = 1
+	gapTolerance = 1
+	minMatchLength = 3
+	maxGapBridges = 10
+	defer func() {
+		maxHoleSize = oldHole
+		gapTolerance = oldGap
+		minMatchLength = oldMin
+		maxGapBridges = oldBridges
+	}()
+
+	// Diagonal with a hole at (2,2) then an insertion gap shifting to (4,3)
+	// (0,0), (1,1), hole at (2,2), (3,3), then gap: (4,3) is the next match
+	// This tests that holes and gaps compose
+	matrix := buildMatrix(
+		"100000",
+		"010000",
+		"000000",
+		"000100",
+		"000100",
+		"000010",
+	)
+
+	matches := identifyDuplicateRuns(matrix)
+	if len(matches) < 1 {
+		t.Fatalf("expected at least 1 match, got %d: %+v", len(matches), matches)
+	}
+	m := matches[0]
+	if m.HoleCount < 1 || m.Length < 3 {
+		t.Errorf("expected holes and sufficient length, got length=%d holes=%d gaps=%d", m.Length, m.HoleCount, m.GapCount)
+	}
+}
+
+func TestIdentifyDuplicateRuns_HoleZeroPreservesOldBehavior(t *testing.T) {
+	oldHole := maxHoleSize
+	oldMin := minMatchLength
+	maxHoleSize = 0
+	minMatchLength = 3
+	defer func() {
+		maxHoleSize = oldHole
+		minMatchLength = oldMin
+	}()
+
+	// Same matrix as SingleHole test but with maxHoleSize=0
+	// Should NOT bridge the hole
+	matrix := buildMatrix(
+		"10000",
+		"01000",
+		"00000",
+		"00010",
+		"00001",
+	)
+
+	matches := identifyDuplicateRuns(matrix)
+	if len(matches) != 0 {
+		t.Fatalf("expected 0 matches with zero hole tolerance, got %d: %+v", len(matches), matches)
+	}
+}
+
 func TestIdentifyDuplicates_SameFile(t *testing.T) {
 	f := duplicateFile{
 		LineHashes: []uint64{100, 200, 100},

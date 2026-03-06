@@ -145,8 +145,15 @@ func processFile(f duplicateFile) int {
 			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 			for _, match := range matches {
 				duplicateCount += match.Length
-				if match.GapCount > 0 {
-					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (matching lines %d, gaps %d)\n", match.SourceStartLine+1, match.SourceEndLine+1, match.TargetStartLine+1, match.TargetEndLine+1, c.Location, match.Length, match.GapCount))
+				if match.GapCount > 0 || match.HoleCount > 0 {
+					extras := fmt.Sprintf("matching lines %d", match.Length)
+					if match.HoleCount > 0 {
+						extras += fmt.Sprintf(", holes %d", match.HoleCount)
+					}
+					if match.GapCount > 0 {
+						extras += fmt.Sprintf(", gaps %d", match.GapCount)
+					}
+					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (%s)\n", match.SourceStartLine+1, match.SourceEndLine+1, match.TargetStartLine+1, match.TargetEndLine+1, c.Location, extras))
 				} else {
 					sb.WriteString(fmt.Sprintf(" lines %d-%d match %d-%d in %s (length %d)\n", match.SourceStartLine+1, match.SourceEndLine+1, match.TargetStartLine+1, match.TargetEndLine+1, c.Location, match.Length))
 				}
@@ -279,6 +286,8 @@ func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 			matchCount := 1
 			gapCount := 0
 			bridgeCount := 0
+			consecutiveHoles := 0
+			holeCount := 0
 			ci, cj := i+1, j+1   // next position to check
 			lastI, lastJ := i, j // last confirmed match position
 
@@ -286,13 +295,23 @@ func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 				if outer[ci][cj] {
 					// Direct diagonal match
 					matchCount++
+					consecutiveHoles = 0
 					lastI, lastJ = ci, cj
 					ci++
 					cj++
 					continue
 				}
 
-				// No direct match — try gap bridging
+				// Try on-diagonal hole first: the line was modified in place
+				if maxHoleSize > 0 && consecutiveHoles < maxHoleSize {
+					consecutiveHoles++
+					holeCount++
+					ci++
+					cj++
+					continue
+				}
+
+				// No direct match — try off-diagonal gap bridging (insertion/deletion)
 				if gapTolerance == 0 || bridgeCount >= maxGapBridges {
 					break
 				}
@@ -360,6 +379,7 @@ func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 						TargetEndLine:   endJ,
 						Length:          matchCount,
 						GapCount:        gapCount,
+						HoleCount:       holeCount,
 					})
 				}
 			}

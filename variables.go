@@ -14,6 +14,7 @@ var verbose = false
 var fuzzValue uint8 = 0
 var gapTolerance = 0
 var maxGapBridges = 1
+var maxHoleSize = 0
 var duplicatesBothWays = false
 var singleFilePath string
 var fileByID map[uint32]*duplicateFile

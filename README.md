@@ -57,6 +57,7 @@ Flags:
   -f, --fuzz uint8                fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
   -g, --gap-tolerance int         allow gaps of up to N lines when matching duplicate blocks (0 = no gaps allowed)
   -h, --help                      help for dcd
+      --max-hole-size int         allow up to N consecutive modified lines (holes) within a duplicate diagonal (0 = no holes allowed)
   -i, --include-ext strings       limit to file extensions [comma separated list: e.g. go,java,js]
   -m, --match-length int          min match length (default 6)
       --max-gap-bridges int       maximum number of gap bridges allowed per duplicate match (default 1)
@@ -117,18 +118,32 @@ $ dcd -g 3 --max-gap-bridges 3
 
 The `--max-gap-bridges` flag (default 1) controls how many gaps can be bridged within a single duplicate block. Increasing this allows noisier but more permissive matching.
 
-Fuzzy matching and gap tolerance are orthogonal and compose together: `--fuzz` controls line-level similarity, while `--gap-tolerance` controls run-level continuity.
+#### Hole tolerance
+
+The `--max-hole-size` flag allows `dcd` to skip over modified lines within a diagonal match — lines that stayed in the same position but were changed. This is directly inspired by the [Ducasse et al. paper](https://ieeexplore.ieee.org/document/792593), where holes in diagonal patterns represent in-place modifications.
 
 ```
-# Fuzzy lines with gap bridging for maximum duplicate detection
-$ dcd -f 2 -g 2
+# Allow up to 2 consecutive modified lines within a match
+$ dcd --max-hole-size 2
 ```
 
-When gaps are present, the output includes a gap count:
+Holes differ from gaps:
+- **Holes** (`--max-hole-size`): lines modified in place — the diagonal continues straight but some cells don't match
+- **Gaps** (`--gap-tolerance`): lines inserted or deleted — the diagonal shifts to a new position
+
+All three mechanisms are orthogonal and compose together: `--fuzz` controls line-level similarity, `--max-hole-size` handles in-place modifications, and `--gap-tolerance` handles insertions/deletions.
+
+```
+# Maximum duplicate detection: fuzzy lines, holes, and gap bridging
+$ dcd -f 2 --max-hole-size 2 -g 2
+```
+
+When holes or gaps are present, the output includes counts:
 
 ```
 Found duplicate lines in fileA.go:
- lines 10-25 match 30-46 in fileB.go (matching lines 14, gaps 2)
+ lines 10-25 match 30-46 in fileB.go (matching lines 14, holes 2)
+ lines 50-68 match 80-100 in fileB.go (matching lines 15, holes 1, gaps 3)
 ```
 
 #### Single file comparison
@@ -181,7 +196,8 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" && zip -r9 dcd-1.0.0-arm64-unk
 3. For each candidate pair, a 2D boolean matrix is built comparing all lines.
 4. Diagonal runs in the matrix identify contiguous duplicate sequences.
 5. With `--fuzz`, simhash distance is used instead of exact hash equality.
-6. With `--gap-tolerance`, the algorithm searches ahead to bridge over small gaps in otherwise matching diagonals.
+6. With `--max-hole-size`, modified lines (holes) within a diagonal are tolerated — the diagonal stays straight but skips non-matching cells.
+7. With `--gap-tolerance`, the algorithm searches ahead to bridge over insertions/deletions that shift the diagonal.
 
 ### Reading
 

@@ -42,7 +42,8 @@ Single `main` package, ~780 lines across 6 main files (7 including tests). No su
 3. For each file pair sharing enough matching line hashes, a 2D boolean matrix is built comparing all lines
 4. Diagonal runs in the matrix identify contiguous duplicate sequences (inspired by [this paper](https://ieeexplore.ieee.org/document/792593))
 5. `--fuzz` flag enables fuzzy matching via simhash distance instead of exact hash equality
-6. `--gap-tolerance` (`-g`) allows bridging over small gaps (inserted/deleted/modified lines) in otherwise matching blocks. When set to N, the algorithm searches up to N positions ahead in both source and target to find the next matching line. Default 0 preserves strict contiguous matching. Orthogonal to `--fuzz` (they compose: fuzz controls line-level similarity, gap tolerance controls run-level continuity). `--match-length` still requires that many actual matching lines regardless of gaps bridged.
+6. `--gap-tolerance` (`-g`) allows bridging over small gaps (inserted/deleted lines) in otherwise matching blocks. When set to N, the algorithm searches up to N positions ahead in both source and target to find the next matching line on a shifted diagonal. Default 0 preserves strict contiguous matching. `--match-length` still requires that many actual matching lines regardless of gaps bridged.
+7. `--max-hole-size` allows up to N consecutive modified lines (holes) within a diagonal — lines that stayed in place but were changed. Unlike gap tolerance (which handles insertions/deletions by jumping off-diagonal), holes stay on the same diagonal. Both compose: on each non-matching cell, holes are tried first (fast, stays on diagonal), then gap bridging (2D search for shifted diagonal). Together with `--fuzz`, all three are orthogonal: fuzz controls line-level similarity, holes handle in-place modifications, gaps handle insertions/deletions.
 
 ### Optimization notes
 

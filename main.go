@@ -106,6 +106,12 @@ func main() {
 		1,
 		"maximum number of gap bridges allowed per duplicate match (increase for noisier but more permissive matching)",
 	)
+	flags.IntVar(
+		&maxHoleSize,
+		"max-hole-size",
+		0,
+		"allow up to N consecutive modified lines (holes) within a duplicate diagonal (0 = no holes allowed)",
+	)
 	flags.BoolVar(
 		&duplicatesBothWays,
 		"duplicates-both-ways",
