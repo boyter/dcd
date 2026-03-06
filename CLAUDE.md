@@ -45,6 +45,8 @@ Single `main` package, ~780 lines across 6 main files (7 including tests). No su
 6. `--gap-tolerance` (`-g`) allows bridging over small gaps (inserted/deleted lines) in otherwise matching blocks. When set to N, the algorithm searches up to N positions ahead in both source and target to find the next matching line on a shifted diagonal. Default 0 preserves strict contiguous matching. `--match-length` still requires that many actual matching lines regardless of gaps bridged.
 7. `--max-hole-size` allows up to N consecutive modified lines (holes) within a diagonal — lines that stayed in place but were changed. Unlike gap tolerance (which handles insertions/deletions by jumping off-diagonal), holes stay on the same diagonal. Both compose: on each non-matching cell, holes are tried first (fast, stays on diagonal), then gap bridging (2D search for shifted diagonal). Together with `--fuzz`, all three are orthogonal: fuzz controls line-level similarity, holes handle in-place modifications, gaps handle insertions/deletions.
 
+8. `--ignore-comments` excludes comment lines, `--ignore-strings` excludes string literal content, and `--code-only` enables both. Uses `github.com/boyter/scc/v3` for language-aware content classification. Filtering is applied to the full file content before line splitting — scc classifies each byte, then `FilterContentByType` replaces excluded bytes with spaces while preserving newlines. After normalization, filtered lines become empty/short and are naturally excluded from indexing.
+
 ### Optimization notes
 
 Two alternative duplicate detection algorithms were benchmarked and removed:
@@ -64,5 +66,6 @@ Two alternative duplicate detection algorithms were benchmarked and removed:
 ### Key dependencies
 
 - `github.com/boyter/gocodewalker` — File walking with .gitignore/.ignore support
+- `github.com/boyter/scc/v3` — Language-aware content classification (comment/string/code byte tagging)
 - `github.com/mfonda/simhash` — Simhash for line fingerprinting and fuzzy comparison
 - `github.com/spf13/cobra` — CLI framework

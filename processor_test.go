@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/boyter/gocodewalker"
+	"github.com/boyter/scc/v3/processor"
 )
 
 // helper to build a bool matrix from a string grid where '1' = true, '0' = false
@@ -675,6 +676,34 @@ line three
 	}
 }
 
+func shouldFailOnThreshold(duplicateCount int64, threshold int) bool {
+	return threshold >= 0 && duplicateCount > int64(threshold)
+}
+
+func TestShouldFailOnThreshold(t *testing.T) {
+	tests := []struct {
+		name           string
+		duplicateCount int64
+		threshold      int
+		wantFail       bool
+	}{
+		{"disabled threshold", 100, -1, false},
+		{"no dupes threshold 0", 0, 0, false},
+		{"dupes with threshold 0", 1, 0, true},
+		{"exactly at threshold", 50, 50, false},
+		{"over threshold", 51, 50, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldFailOnThreshold(tt.duplicateCount, tt.threshold)
+			if got != tt.wantFail {
+				t.Errorf("shouldFailOnThreshold(%d, %d) = %v, want %v",
+					tt.duplicateCount, tt.threshold, got, tt.wantFail)
+			}
+		})
+	}
+}
+
 func TestIdentifyDuplicates_SameFile(t *testing.T) {
 	f := duplicateFile{
 		LineHashes: []uint64{100, 200, 100},
@@ -694,6 +723,144 @@ func TestIdentifyDuplicates_SameFile(t *testing.T) {
 	}
 	if !matrix[2][0] {
 		t.Error("expected (2,0) to be true")
+	}
+}
+
+func TestFilterContentByScc_IgnoreComments(t *testing.T) {
+	processor.ProcessConstants()
+
+	oldIC := ignoreComments
+	oldIS := ignoreStrings
+	oldFilter := sccFilterActive
+	ignoreComments = true
+	ignoreStrings = false
+	sccFilterActive = true
+	defer func() {
+		ignoreComments = oldIC
+		ignoreStrings = oldIS
+		sccFilterActive = oldFilter
+	}()
+
+	content := []byte("package main\n\nfunc main() {\n// this is a comment\nfmt.Println(\"hello\")\n}\n")
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "test.go")
+	if err := os.WriteFile(fpath, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var nextID atomic.Uint32
+	// Process without filtering
+	ignoreComments = false
+	sccFilterActive = false
+	resultNoFilter := processInputFile(&gocodewalker.File{Location: fpath, Filename: "test.go"}, &nextID)
+
+	// Process with comment filtering
+	ignoreComments = true
+	sccFilterActive = true
+	resultFiltered := processInputFile(&gocodewalker.File{Location: fpath, Filename: "test.go"}, &nextID)
+
+	if resultNoFilter == nil || resultFiltered == nil {
+		t.Fatal("expected non-nil results")
+	}
+
+	// Filtered result should have fewer hash entries since comment lines become empty
+	if len(resultFiltered.hashEntries) >= len(resultNoFilter.hashEntries) {
+		t.Errorf("expected fewer hash entries with comment filtering, got %d (filtered) vs %d (unfiltered)",
+			len(resultFiltered.hashEntries), len(resultNoFilter.hashEntries))
+	}
+}
+
+func TestFilterContentByScc_IgnoreStrings(t *testing.T) {
+	processor.ProcessConstants()
+
+	oldIC := ignoreComments
+	oldIS := ignoreStrings
+	oldFilter := sccFilterActive
+	ignoreComments = false
+	ignoreStrings = true
+	sccFilterActive = true
+	defer func() {
+		ignoreComments = oldIC
+		ignoreStrings = oldIS
+		sccFilterActive = oldFilter
+	}()
+
+	// Two Go files differing only in string content
+	contentA := []byte("package main\n\nfunc main() {\nfmt.Println(\"hello world\")\n}\n")
+	contentB := []byte("package main\n\nfunc main() {\nfmt.Println(\"goodbye world\")\n}\n")
+	dir := t.TempDir()
+	fpathA := filepath.Join(dir, "a.go")
+	fpathB := filepath.Join(dir, "b.go")
+	if err := os.WriteFile(fpathA, contentA, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fpathB, contentB, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var nextID atomic.Uint32
+	resultA := processInputFile(&gocodewalker.File{Location: fpathA, Filename: "a.go"}, &nextID)
+	resultB := processInputFile(&gocodewalker.File{Location: fpathB, Filename: "b.go"}, &nextID)
+
+	if resultA == nil || resultB == nil {
+		t.Fatal("expected non-nil results")
+	}
+
+	// With strings filtered, the Println lines should produce the same hash
+	if len(resultA.file.LineHashes) != len(resultB.file.LineHashes) {
+		t.Fatalf("line count mismatch: %d vs %d", len(resultA.file.LineHashes), len(resultB.file.LineHashes))
+	}
+	for i := range resultA.file.LineHashes {
+		if resultA.file.LineHashes[i] != resultB.file.LineHashes[i] {
+			t.Errorf("line %d hashes differ: %d vs %d", i, resultA.file.LineHashes[i], resultB.file.LineHashes[i])
+		}
+	}
+}
+
+func TestFilterContentByScc_UnknownLanguage(t *testing.T) {
+	processor.ProcessConstants()
+
+	content := []byte("some random content\n// comment\n\"string\"\n")
+	filtered := filterContentByScc(content, "test.unknownextension12345")
+
+	// Unknown language should return content unchanged
+	if !reflect.DeepEqual(content, filtered) {
+		t.Error("expected content to be unchanged for unknown language")
+	}
+}
+
+func TestFilterContentByScc_NoFilterRegression(t *testing.T) {
+	processor.ProcessConstants()
+
+	oldIC := ignoreComments
+	oldIS := ignoreStrings
+	oldFilter := sccFilterActive
+	ignoreComments = false
+	ignoreStrings = false
+	sccFilterActive = false
+	defer func() {
+		ignoreComments = oldIC
+		ignoreStrings = oldIS
+		sccFilterActive = oldFilter
+	}()
+
+	content := []byte("package main\n\n// comment\nfunc main() {\nfmt.Println(\"hello\")\n}\n")
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "test.go")
+	if err := os.WriteFile(fpath, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var nextID atomic.Uint32
+	result := processInputFile(&gocodewalker.File{Location: fpath, Filename: "test.go"}, &nextID)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	// All non-trivial lines should have hash entries (comments included when not filtering)
+	// "package main", "// comment", "func main() {", "fmt.Println(...)", "}" — at least 4 entries with len > 3
+	if len(result.hashEntries) < 4 {
+		t.Errorf("expected at least 4 hash entries without filtering, got %d", len(result.hashEntries))
 	}
 }
 
