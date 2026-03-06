@@ -75,6 +75,7 @@ func processFile(f duplicateFile) int {
 
 	var sb strings.Builder
 	duplicateCount := 0
+	duplicateSourceLines := map[int]struct{}{}
 	// Filter out all of the possible candidates that could be what we are looking for
 	possibleCandidates := map[uint32]int{}
 	// Deduplicate hashes — repeated lines (}, blank, etc.) produce identical
@@ -145,6 +146,9 @@ func processFile(f duplicateFile) int {
 			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 			for _, match := range matches {
 				duplicateCount += match.Length
+				for l := match.SourceStartLine; l < match.SourceEndLine; l++ {
+					duplicateSourceLines[l] = struct{}{}
+				}
 				if match.GapCount > 0 || match.HoleCount > 0 {
 					extras := fmt.Sprintf("matching lines %d", match.Length)
 					if match.HoleCount > 0 {
@@ -162,6 +166,10 @@ func processFile(f duplicateFile) int {
 	}
 
 	if sb.Len() != 0 {
+		if len(duplicateSourceLines) > 0 && len(f.LineHashes) > 0 {
+			pct := float64(len(duplicateSourceLines)) / float64(len(f.LineHashes)) * 100
+			sb.WriteString(fmt.Sprintf(" %.1f%% duplicate (%d of %d lines)\n", pct, len(duplicateSourceLines), len(f.LineHashes)))
+		}
 		fmt.Print(sb.String())
 	}
 
