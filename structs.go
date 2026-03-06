@@ -1,10 +1,11 @@
 package main
 
 type duplicateFile struct {
-	Filename   string
-	Location   string
-	Extension  string
-	LineHashes []uint64
+	ID                 uint32
+	Location           string
+	Extension          string
+	LineHashes         []uint64
+	SortedUniqueHashes []uint64
 }
 
 type duplicateMatch struct {
@@ -13,4 +14,6 @@ type duplicateMatch struct {
 	TargetStartLine int
 	TargetEndLine   int
 	Length          int
+	GapCount        int
+	HoleCount       int
 }

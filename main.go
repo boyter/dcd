@@ -17,6 +17,26 @@ func main() {
 		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org>", version),
 		Version: version,
 		Run: func(cmd *cobra.Command, args []string) {
+			// PBM mode: if any PBM flag is set, validate all three are present
+			pbmFlags := 0
+			if pbmFileA != "" {
+				pbmFlags++
+			}
+			if pbmFileB != "" {
+				pbmFlags++
+			}
+			if pbmOutput != "" {
+				pbmFlags++
+			}
+			if pbmFlags > 0 && pbmFlags < 3 {
+				fmt.Println("error: --pbm-file-a, --pbm-file-b, and --pbm-output must all be specified together")
+				os.Exit(1)
+			}
+			if pbmFlags == 3 {
+				processPBM()
+				return
+			}
+
 			dirFilePaths = args
 			if len(dirFilePaths) == 0 {
 				dirFilePaths = append(dirFilePaths, ".")
@@ -92,6 +112,55 @@ func main() {
 		"f",
 		0,
 		"fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match",
+	)
+	flags.IntVarP(
+		&gapTolerance,
+		"gap-tolerance",
+		"g",
+		0,
+		"allow gaps of up to N lines when matching duplicate blocks, bridging over inserted, deleted, or modified lines (0 = no gaps allowed)",
+	)
+	flags.IntVar(
+		&maxGapBridges,
+		"max-gap-bridges",
+		1,
+		"maximum number of gap bridges allowed per duplicate match (increase for noisier but more permissive matching)",
+	)
+	flags.IntVar(
+		&maxHoleSize,
+		"max-hole-size",
+		0,
+		"allow up to N consecutive modified lines (holes) within a duplicate diagonal (0 = no holes allowed)",
+	)
+	flags.BoolVar(
+		&duplicatesBothWays,
+		"duplicates-both-ways",
+		false,
+		"report duplicates from both file perspectives (default reports each pair once)",
+	)
+	flags.StringVar(
+		&singleFilePath,
+		"file",
+		"",
+		"compare a single file against the rest of the codebase",
+	)
+	flags.StringVar(
+		&pbmFileA,
+		"pbm-file-a",
+		"",
+		"first file to compare for PBM scatter plot output",
+	)
+	flags.StringVar(
+		&pbmFileB,
+		"pbm-file-b",
+		"",
+		"second file to compare for PBM scatter plot output",
+	)
+	flags.StringVar(
+		&pbmOutput,
+		"pbm-output",
+		"",
+		"output path for PBM scatter plot file",
 	)
 
 	if err := rootCmd.Execute(); err != nil {
