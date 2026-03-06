@@ -21,7 +21,7 @@ Releases are managed via GoReleaser (`.goreleaser.yml`).
 
 ## Architecture
 
-Single `main` package, ~610 lines across 7 files. No sub-packages.
+Single `main` package, ~780 lines across 6 main files (7 including tests). No sub-packages.
 
 **Execution flow:** `main.go` (Cobra CLI setup) → `process()` in `processor.go` → `selectFiles()` in `file.go`
 
