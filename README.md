@@ -307,6 +307,31 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" && zip -r9 dcd-1.0.0-arm64-unk
 6. With `--max-hole-size`, modified lines (holes) within a diagonal are tolerated — the diagonal stays straight but skips non-matching cells.
 7. With `--gap-tolerance`, the algorithm searches ahead to bridge over insertions/deletions that shift the diagonal.
 
+### Comparison with Simian
+
+`dcd` was built as a free, open-source alternative to [Simian](https://simian.quandarypeak.com/). Here's how they compare:
+
+| Feature | dcd | Simian |
+|---|---|---|
+| License | AGPL-3.0 (free) | Commercial |
+| Language | Go (single binary, no runtime) | Java or .NET (requires JVM/.NET runtime) |
+| Language-aware parsing | ✅ via [scc](https://github.com/boyter/scc) — 250+ languages | ✅ ~15 hardcoded languages |
+| Ignore comments | ✅ `--ignore-comments` | ✅ implicit (comments not counted) |
+| Ignore string literals | ✅ `--ignore-strings` | ✅ `ignoreStrings` flag |
+| Ignore marked blocks | ✅ `--ignore-blocks-start/end` | ✅ `ignoreBlocks` option |
+| Fuzzy / near-duplicate matching | ✅ `--fuzz` (simhash distance) | ❌ exact token matching only |
+| Gap tolerance (inserted/deleted lines) | ✅ `--gap-tolerance` | ❌ |
+| Hole tolerance (in-place modifications) | ✅ `--max-hole-size` | ❌ |
+| JSON output | ✅ `--format json` | ✅ XML, YAML, plain, emacs, vs |
+| Per-file duplication percentage | ✅ | ❌ |
+| CI exit code on duplication | ✅ `--duplicate-threshold` | ✅ `failOnDuplication` |
+| `.gitignore` / `.ignore` support | ✅ | ❌ |
+| Scatter plot visualization | ✅ PBM format | ❌ |
+| Same-file duplicate detection | ✅ `--process-same-file` | ✅ |
+| Single-file vs codebase comparison | ✅ `--file` | ❌ |
+
+The main things Simian still has that `dcd` does not: support for comparing two separate codebases against each other, and a broader set of structured report formats for IDE and build tool integration (Emacs, Visual Studio, Checkstyle/Ant task).
+
 ### Reading
 
 Some of the ideas for detection taken from this paper https://ieeexplore.ieee.org/document/792593
