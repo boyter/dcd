@@ -24,3 +24,8 @@ var fileByID map[uint32]*duplicateFile
 var ignoreBlocksStart string
 var ignoreBlocksEnd string
 var formatOutput string
+var duplicateThreshold int = 0
+var ignoreComments = false
+var ignoreStrings = false
+var codeOnly = false
+var sccFilterActive = false

@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/boyter/gocodewalker"
+	"github.com/boyter/scc/v3/processor"
 	"github.com/mfonda/simhash"
 )
 
@@ -108,6 +109,10 @@ func processInputFile(f *gocodewalker.File, nextID *atomic.Uint32) *fileResult {
 		return nil
 	}
 
+	if sccFilterActive {
+		content = filterContentByScc(content, f.Filename)
+	}
+
 	ext := gocodewalker.GetExtension(f.Filename)
 	lines := strings.Split(string(content), "\n")
 
@@ -162,6 +167,31 @@ func processInputFile(f *gocodewalker.File, nextID *atomic.Uint32) *fileResult {
 		},
 		hashEntries: hashEntries,
 	}
+}
+
+func filterContentByScc(content []byte, filename string) []byte {
+	job := &processor.FileJob{
+		Filename: filename,
+		Content:  content,
+		Bytes:    int64(len(content)),
+	}
+	possibleLangs, ext := processor.DetectLanguage(job.Filename)
+	job.PossibleLanguages = possibleLangs
+	job.Extension = ext
+	if len(possibleLangs) == 0 {
+		return content
+	}
+	job.Language = processor.DetermineLanguage(job.Filename, possibleLangs[0], possibleLangs, job.Content)
+	processor.CountStats(job)
+
+	keepTypes := []byte{processor.ByteTypeCode, processor.ByteTypeBlank}
+	if !ignoreComments {
+		keepTypes = append(keepTypes, processor.ByteTypeComment)
+	}
+	if !ignoreStrings {
+		keepTypes = append(keepTypes, processor.ByteTypeString)
+	}
+	return job.FilterContentByType(keepTypes...)
 }
 
 func selectFiles() map[string][]duplicateFile {

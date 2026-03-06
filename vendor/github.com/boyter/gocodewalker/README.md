@@ -38,6 +38,12 @@ errorHandler := func(e error) bool {
 }
 fileWalker.SetErrorHandler(errorHandler)
 
+// skipHandler
+skipHandler := func(path string, name string, isDir bool, reason gocodewalker.SkipReason) {
+    fmt.Println("SKIPPED", path, name, isDir, reason)
+}
+fileWalker.SetSkipHandler(skipHandler)
+
 go fileWalker.Start()
 
 for f := range fileListQueue {
@@ -96,6 +102,40 @@ errorHandler := func(e error) bool {
 }
 fileWalker.SetErrorHandler(errorHandler)
 ```
+
+### Skip Handler
+
+You can supply your own skip handler when walking. This allows you to perform an action a file is skipped.
+
+```go
+// skipHandler
+skipHandler := func(path string, name string, isDir bool, reason gocodewalker.SkipReason) {
+    fmt.Println("SKIPPED", path, name, isDir, reason)
+}
+fileWalker.SetSkipHandler(skipHandler)
+```
+
+
+### Binary Checking
+
+You can ask it to ignore binary files for you by setting `IgnoreBinaryFiles` to true and optionally 
+`IgnoreBinaryFileBytes` to the number of bytes you want to check which by default is set to 1,000.
+
+This will have a performance impact as gocodewalker will open each file, so you may want to do this check yourself
+if performance is your goal.
+
+```go
+fileListQueue := make(chan *gocodewalker.File, 100)
+
+fileWalker := gocodewalker.NewFileWalker(".", fileListQueue)
+
+// set to ignore binary files
+fileWalker.IgnoreBinaryFiles = true
+fileWalker.IgnoreBinaryFileBytes = 500
+```
+
+The check itself looks for a null byte `if b == 0 {` which is a fast mostly accurate way of checking for 
+a binary file.
 
 ### Testing
 

@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/boyter/scc/v3/processor"
+	"github.com/spf13/cobra"
 )
 
 func main() {
@@ -42,12 +44,24 @@ func main() {
 				os.Exit(1)
 			}
 
+			if codeOnly {
+				ignoreComments = true
+				ignoreStrings = true
+			}
+			sccFilterActive = ignoreComments || ignoreStrings
+			if sccFilterActive {
+				processor.ProcessConstants()
+			}
+
 			dirFilePaths = args
 			if len(dirFilePaths) == 0 {
 				dirFilePaths = append(dirFilePaths, ".")
 			}
 
-			process()
+			duplicateCount := process()
+			if duplicateThreshold >= 0 && duplicateCount > int64(duplicateThreshold) {
+				os.Exit(1)
+			}
 		},
 	}
 
@@ -184,6 +198,30 @@ func main() {
 		"format",
 		"",
 		"output format: text (default) or json",
+	)
+	flags.IntVar(
+		&duplicateThreshold,
+		"duplicate-threshold",
+		0,
+		"exit with code 1 when total duplicate lines exceed this threshold (0 to fail on any duplicates, -1 to disable)",
+	)
+	flags.BoolVar(
+		&ignoreComments,
+		"ignore-comments",
+		false,
+		"exclude comment lines from duplicate detection (uses scc language detection)",
+	)
+	flags.BoolVar(
+		&ignoreStrings,
+		"ignore-strings",
+		false,
+		"exclude string literal content from duplicate detection (uses scc language detection)",
+	)
+	flags.BoolVar(
+		&codeOnly,
+		"code-only",
+		false,
+		"shorthand for --ignore-comments --ignore-strings",
 	)
 
 	if err := rootCmd.Execute(); err != nil {

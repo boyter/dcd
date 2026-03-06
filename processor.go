@@ -15,7 +15,7 @@ import (
 
 var processedPairs sync.Map
 
-func process() {
+func process() int64 {
 	extensionFileMap := selectFiles()
 
 	var duplicateCount int64
@@ -97,6 +97,7 @@ func process() {
 	} else {
 		fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
 	}
+	return duplicateCount
 }
 
 func processFile(f duplicateFile) duplicateResult {
