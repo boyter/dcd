@@ -177,6 +177,10 @@ $ dcd --pbm-file-a fileA.go --pbm-file-b fileB.go --pbm-output fuzzy.pbm -f 2
 
 The output is a P1 ASCII PBM file where each pixel represents a line pair: black (1) means the lines match, white (0) means they don't. The image can be viewed with any image viewer that supports PBM (GIMP, feh, ImageMagick's `display`, etc.).
 
+| Duplicate code (self-comparison) | Totally different files | Some duplicate/copied code |
+|:---:|:---:|:---:|
+| ![Duplicate code](file1.png) | ![No duplicates](file2.png) | ![Some duplicates](file3.png) |
+
 #### Same-file duplicates
 
 By default, `dcd` only compares different files. Use `--process-same-file` to also find duplicate blocks within the same file:

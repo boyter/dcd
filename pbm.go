@@ -69,8 +69,9 @@ func processPBM() {
 	}
 	fileB.ID = 1
 
-	sameFile := pbmFileA == pbmFileB
-	matrix := identifyDuplicates(*fileA, *fileB, sameFile, fuzzValue)
+	// Always pass sameFile=false for PBM: we want to visualize all matches
+	// including the main diagonal when comparing a file to itself.
+	matrix := identifyDuplicates(*fileA, *fileB, false, fuzzValue)
 
 	if err := writePBM(matrix, pbmOutput); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing PBM: %s\n", err)
