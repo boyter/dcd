@@ -56,6 +56,7 @@ Flags:
       --duplicates-both-ways         report duplicates from both file perspectives (default reports each pair once)
   -x, --exclude-pattern strings      file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]
       --file string                  compare a single file against the rest of the codebase
+      --format string                output format: text (default) or json
   -f, --fuzz uint8                   fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
   -g, --gap-tolerance int            allow gaps of up to N lines when matching duplicate blocks (0 = no gaps allowed)
   -h, --help                         help for dcd
@@ -219,6 +220,55 @@ func example() {
 ```
 
 Multiple ignore blocks in the same file are supported — each start marker begins a new ignored region, and the next end marker closes it.
+
+#### JSON output
+
+The `--format` flag controls the output format. By default, `dcd` produces human-readable text. Use `--format json` to get structured JSON output, useful for integration with other tools or CI pipelines:
+
+```
+$ dcd --format json .
+```
+
+The JSON output has this structure:
+
+```json
+{
+  "files": [
+    {
+      "path": "foo.go",
+      "totalLines": 67,
+      "duplicateLines": 20,
+      "duplicatePercent": 29.9,
+      "matches": [
+        {
+          "sourceStartLine": 10,
+          "sourceEndLine": 25,
+          "targetFile": "bar.go",
+          "targetStartLine": 40,
+          "targetEndLine": 55,
+          "length": 15,
+          "gapCount": 0,
+          "holeCount": 0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalDuplicateLines": 25,
+    "totalFiles": 5
+  }
+}
+```
+
+You can pipe the output to `jq` for further processing:
+
+```
+# Get just the summary
+$ dcd --format json . | jq '.summary'
+
+# List files with more than 50% duplication
+$ dcd --format json . | jq '.files[] | select(.duplicatePercent > 50) | .path'
+```
 
 ### Ignore Files
 

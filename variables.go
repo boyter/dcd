@@ -23,3 +23,4 @@ var pbmOutput string
 var fileByID map[uint32]*duplicateFile
 var ignoreBlocksStart string
 var ignoreBlocksEnd string
+var formatOutput string

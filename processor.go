@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,6 +21,10 @@ func process() {
 	var duplicateCount int64
 	var fileCount int
 
+	jsonMode := formatOutput == "json"
+	var results []duplicateResult
+	var resultsMu sync.Mutex
+
 	// loop the files for each language bucket, java,c,go
 	for _, files := range extensionFileMap {
 		processedPairs = sync.Map{}
@@ -30,8 +36,13 @@ func process() {
 			go func() {
 				for f := range channel {
 					// then loop each of the files
-					dc := processFile(f)
-					atomic.AddInt64(&duplicateCount, int64(dc))
+					fr := processFile(f)
+					atomic.AddInt64(&duplicateCount, int64(fr.DuplicateCount))
+					if jsonMode && len(fr.Matches) > 0 {
+						resultsMu.Lock()
+						results = append(results, fr)
+						resultsMu.Unlock()
+					}
 				}
 				wg.Done()
 			}()
@@ -65,16 +76,41 @@ func process() {
 		wg.Wait()
 	}
 
-	fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
+	if jsonMode {
+		if results == nil {
+			results = []duplicateResult{}
+		}
+		output := struct {
+			Files   []duplicateResult `json:"files"`
+			Summary struct {
+				TotalDuplicateLines int `json:"totalDuplicateLines"`
+				TotalFiles          int `json:"totalFiles"`
+			} `json:"summary"`
+		}{
+			Files: results,
+		}
+		output.Summary.TotalDuplicateLines = int(duplicateCount)
+		output.Summary.TotalFiles = fileCount
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(output)
+	} else {
+		fmt.Println("Found", duplicateCount, "duplicate lines in", fileCount, "files")
+	}
 }
 
-func processFile(f duplicateFile) int {
-	if len(f.LineHashes) < minMatchLength {
-		return 0
+func processFile(f duplicateFile) duplicateResult {
+	result := duplicateResult{
+		Location:   f.Location,
+		TotalLines: len(f.LineHashes),
 	}
 
+	if len(f.LineHashes) < minMatchLength {
+		return result
+	}
+
+	jsonMode := formatOutput == "json"
 	var sb strings.Builder
-	duplicateCount := 0
 	duplicateSourceLines := map[int]struct{}{}
 	// Filter out all of the possible candidates that could be what we are looking for
 	possibleCandidates := map[uint32]int{}
@@ -143,13 +179,26 @@ func processFile(f duplicateFile) int {
 
 		matches := identifyDuplicateRuns(outer)
 		if len(matches) != 0 {
-			sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
+			if !jsonMode {
+				sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
+			}
 			for _, match := range matches {
-				duplicateCount += match.Length
+				result.DuplicateCount += match.Length
 				for l := match.SourceStartLine; l < match.SourceEndLine; l++ {
 					duplicateSourceLines[l] = struct{}{}
 				}
-				if match.GapCount > 0 || match.HoleCount > 0 {
+				if jsonMode {
+					result.Matches = append(result.Matches, matchResult{
+						SourceStartLine: match.SourceStartLine + 1,
+						SourceEndLine:   match.SourceEndLine + 1,
+						TargetFile:      c.Location,
+						TargetStartLine: match.TargetStartLine + 1,
+						TargetEndLine:   match.TargetEndLine + 1,
+						Length:          match.Length,
+						GapCount:        match.GapCount,
+						HoleCount:       match.HoleCount,
+					})
+				} else if match.GapCount > 0 || match.HoleCount > 0 {
 					extras := fmt.Sprintf("matching lines %d", match.Length)
 					if match.HoleCount > 0 {
 						extras += fmt.Sprintf(", holes %d", match.HoleCount)
@@ -165,15 +214,19 @@ func processFile(f duplicateFile) int {
 		}
 	}
 
-	if sb.Len() != 0 {
-		if len(duplicateSourceLines) > 0 && len(f.LineHashes) > 0 {
-			pct := float64(len(duplicateSourceLines)) / float64(len(f.LineHashes)) * 100
-			sb.WriteString(fmt.Sprintf(" %.1f%% duplicate (%d of %d lines)\n", pct, len(duplicateSourceLines), len(f.LineHashes)))
+	result.DuplicateLines = len(duplicateSourceLines)
+	if result.TotalLines > 0 {
+		result.DuplicatePercent = float64(result.DuplicateLines) / float64(result.TotalLines) * 100
+	}
+
+	if !jsonMode && sb.Len() != 0 {
+		if result.DuplicateLines > 0 && result.TotalLines > 0 {
+			sb.WriteString(fmt.Sprintf(" %.1f%% duplicate (%d of %d lines)\n", result.DuplicatePercent, result.DuplicateLines, result.TotalLines))
 		}
 		fmt.Print(sb.String())
 	}
 
-	return duplicateCount
+	return result
 }
 
 func sharedHashCount(a, b []uint64) int {

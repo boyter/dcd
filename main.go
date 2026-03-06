@@ -179,6 +179,12 @@ func main() {
 		"",
 		"marker string to stop ignoring lines (e.g. duplicate-enable)",
 	)
+	flags.StringVar(
+		&formatOutput,
+		"format",
+		"",
+		"output format: text (default) or json",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
