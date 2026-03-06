@@ -147,9 +147,11 @@ func selectFiles() map[string][]duplicateFile {
 	// If --file is set, resolve it and auto-filter to its extension
 	if singleFilePath != "" {
 		abs, err := filepath.Abs(singleFilePath)
-		if err == nil {
-			singleFilePath = abs
+		if err != nil {
+			fmt.Printf("error resolving absolute path for %s: %s\n", singleFilePath, err)
+			os.Exit(1)
 		}
+		singleFilePath = abs
 		ext := gocodewalker.GetExtension(filepath.Base(singleFilePath))
 		if ext != "" {
 			allowListExtensions = []string{ext}

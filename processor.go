@@ -116,7 +116,7 @@ func processFile(f duplicateFile) int {
 			}
 		}
 
-		if !duplicatesBothWays {
+		if !duplicatesBothWays && !sameFile {
 			// Pack two uint32 IDs into one uint64 for pair dedup
 			var pairKey uint64
 			if f.ID < candidateID {
