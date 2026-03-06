@@ -113,10 +113,31 @@ func processInputFile(f *gocodewalker.File, nextID *atomic.Uint32) *fileResult {
 
 	id := nextID.Add(1)
 
+	var lowerStart, lowerEnd string
+	if ignoreBlocksStart != "" {
+		lowerStart = strings.ToLower(ignoreBlocksStart)
+		lowerEnd = strings.ToLower(ignoreBlocksEnd)
+	}
+
 	lineHashes := make([]uint64, 0, len(lines))
 	var hashEntries []hashEntry
+	ignoring := false
 	for i := 0; i < len(lines); i++ {
 		clean := strings.ToLower(spaceMap(lines[i]))
+
+		if lowerStart != "" {
+			if !ignoring && strings.Contains(clean, lowerStart) {
+				ignoring = true
+			}
+			if ignoring {
+				lineHashes = append(lineHashes, 0)
+				if strings.Contains(clean, lowerEnd) {
+					ignoring = false
+				}
+				continue
+			}
+		}
+
 		hash := simhash.Simhash(simhash.NewWordFeatureSet([]byte(clean)))
 
 		lineHashes = append(lineHashes, hash)

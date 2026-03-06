@@ -1,8 +1,13 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"sync/atomic"
 	"testing"
+
+	"github.com/boyter/gocodewalker"
 )
 
 // helper to build a bool matrix from a string grid where '1' = true, '0' = false
@@ -620,6 +625,53 @@ func TestIdentifyDuplicateRuns_HoleZeroPreservesOldBehavior(t *testing.T) {
 	matches := identifyDuplicateRuns(matrix)
 	if len(matches) != 0 {
 		t.Fatalf("expected 0 matches with zero hole tolerance, got %d: %+v", len(matches), matches)
+	}
+}
+
+func TestProcessInputFile_IgnoreBlocks(t *testing.T) {
+	oldStart := ignoreBlocksStart
+	oldEnd := ignoreBlocksEnd
+	ignoreBlocksStart = "duplicate-disable"
+	ignoreBlocksEnd = "duplicate-enable"
+	defer func() {
+		ignoreBlocksStart = oldStart
+		ignoreBlocksEnd = oldEnd
+	}()
+
+	content := `line one
+line two
+// duplicate-disable
+secret line a
+secret line b
+// duplicate-enable
+line three
+`
+	dir := t.TempDir()
+	fpath := filepath.Join(dir, "test.go")
+	if err := os.WriteFile(fpath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var nextID atomic.Uint32
+	result := processInputFile(&gocodewalker.File{Location: fpath, Filename: "test.go"}, &nextID)
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+
+	hashes := result.file.LineHashes
+	// Lines 0,1 should be non-zero (normal lines)
+	// Lines 2,3,4,5 should be 0 (start marker, two ignored, end marker)
+	// Line 6 should be non-zero
+	if hashes[0] == 0 || hashes[1] == 0 {
+		t.Errorf("expected non-zero hashes for normal lines, got %d, %d", hashes[0], hashes[1])
+	}
+	for i := 2; i <= 5; i++ {
+		if hashes[i] != 0 {
+			t.Errorf("expected zero hash for ignored line %d, got %d", i, hashes[i])
+		}
+	}
+	if hashes[6] == 0 {
+		t.Error("expected non-zero hash for line after end marker")
 	}
 }
 

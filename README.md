@@ -36,6 +36,7 @@ Why use `dcd`?
 - Supports gap tolerance to find duplicate blocks even when lines have been inserted, deleted, or modified
 - Can compare a single file against the rest of a codebase
 - Can generate PBM scatter plot visualizations of the comparison matrix between two files
+- Supports ignoring marked blocks of code (e.g. generated code) via configurable markers
 
 ### Usage
 
@@ -52,26 +53,29 @@ Usage:
   dcd [flags]
 
 Flags:
-      --duplicates-both-ways      report duplicates from both file perspectives (default reports each pair once)
-  -x, --exclude-pattern strings   file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]
-      --file string               compare a single file against the rest of the codebase
-  -f, --fuzz uint8                fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
-  -g, --gap-tolerance int         allow gaps of up to N lines when matching duplicate blocks (0 = no gaps allowed)
-  -h, --help                      help for dcd
-      --max-hole-size int         allow up to N consecutive modified lines (holes) within a duplicate diagonal (0 = no holes allowed)
-  -i, --include-ext strings       limit to file extensions [comma separated list: e.g. go,java,js]
-  -m, --match-length int          min match length (default 6)
-      --max-gap-bridges int       maximum number of gap bridges allowed per duplicate match (default 1)
-      --max-read-size-bytes int   number of bytes to read into a file with the remaining content ignored (default 10000000)
-      --min-line-length int       number of bytes per average line for file to be considered minified (default 255)
-      --no-gitignore              disables .gitignore file logic
-      --pbm-file-a string         first file to compare for PBM scatter plot output
-      --pbm-file-b string         second file to compare for PBM scatter plot output
-      --pbm-output string         output path for PBM scatter plot file
-      --no-ignore                 disables .ignore file logic
-      --process-same-file         find duplicate blocks within the same file
-  -v, --verbose                   verbose output
-      --version                   version for dcd
+      --duplicates-both-ways         report duplicates from both file perspectives (default reports each pair once)
+  -x, --exclude-pattern strings      file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]
+      --file string                  compare a single file against the rest of the codebase
+      --format string                output format: text (default) or json
+  -f, --fuzz uint8                   fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
+  -g, --gap-tolerance int            allow gaps of up to N lines when matching duplicate blocks (0 = no gaps allowed)
+  -h, --help                         help for dcd
+      --ignore-blocks-end string     marker string to stop ignoring lines (e.g. duplicate-enable)
+      --ignore-blocks-start string   marker string to start ignoring lines (e.g. duplicate-disable)
+      --max-hole-size int            allow up to N consecutive modified lines (holes) within a duplicate diagonal (0 = no holes allowed)
+  -i, --include-ext strings          limit to file extensions [comma separated list: e.g. go,java,js]
+  -m, --match-length int             min match length (default 6)
+      --max-gap-bridges int          maximum number of gap bridges allowed per duplicate match (default 1)
+      --max-read-size-bytes int      number of bytes to read into a file with the remaining content ignored (default 10000000)
+      --min-line-length int          number of bytes per average line for file to be considered minified (default 255)
+      --no-gitignore                 disables .gitignore file logic
+      --no-ignore                    disables .ignore file logic
+      --pbm-file-a string            first file to compare for PBM scatter plot output
+      --pbm-file-b string            second file to compare for PBM scatter plot output
+      --pbm-output string            output path for PBM scatter plot file
+      --process-same-file            find duplicate blocks within the same file
+  -v, --verbose                      verbose output
+      --version                      version for dcd
 ```
 
 #### Basic usage
@@ -189,6 +193,83 @@ By default, `dcd` only compares different files. Use `--process-same-file` to al
 $ dcd --process-same-file
 ```
 
+#### Ignoring blocks of code
+
+The `--ignore-blocks-start` and `--ignore-blocks-end` flags let you mark regions of code that should be excluded from duplicate detection. This is similar to [Simian's](https://simian.quandarypeak.com/) ignore feature. Lines between (and including) the start and end markers are zeroed out so the duplicate detector skips them.
+
+Both flags must be specified together. The markers are matched case-insensitively against the normalized (lowercased, whitespace-stripped) line content using substring matching.
+
+```
+# Ignore lines between "duplicate-disable" and "duplicate-enable" markers
+$ dcd --ignore-blocks-start duplicate-disable --ignore-blocks-end duplicate-enable
+```
+
+In your source code, add comments containing the marker strings:
+
+```go
+func example() {
+    normalCode() // this line is checked for duplicates
+
+    // duplicate-disable
+    generatedCode()  // these lines are ignored
+    moreGenerated()  // by the duplicate detector
+    // duplicate-enable
+
+    moreNormalCode() // this line is checked again
+}
+```
+
+Multiple ignore blocks in the same file are supported — each start marker begins a new ignored region, and the next end marker closes it.
+
+#### JSON output
+
+The `--format` flag controls the output format. By default, `dcd` produces human-readable text. Use `--format json` to get structured JSON output, useful for integration with other tools or CI pipelines:
+
+```
+$ dcd --format json .
+```
+
+The JSON output has this structure:
+
+```json
+{
+  "files": [
+    {
+      "path": "foo.go",
+      "totalLines": 67,
+      "duplicateLines": 20,
+      "duplicatePercent": 29.9,
+      "matches": [
+        {
+          "sourceStartLine": 10,
+          "sourceEndLine": 25,
+          "targetFile": "bar.go",
+          "targetStartLine": 40,
+          "targetEndLine": 55,
+          "length": 15,
+          "gapCount": 0,
+          "holeCount": 0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalDuplicateLines": 25,
+    "totalFiles": 5
+  }
+}
+```
+
+You can pipe the output to `jq` for further processing:
+
+```
+# Get just the summary
+$ dcd --format json . | jq '.summary'
+
+# List files with more than 50% duplication
+$ dcd --format json . | jq '.files[] | select(.duplicatePercent > 50) | .path'
+```
+
 ### Ignore Files
 
 `dcd` supports .ignore files inside directories that it scans. This is similar to how ripgrep, ag and tokei work.
@@ -218,7 +299,7 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" && zip -r9 dcd-1.0.0-arm64-unk
 
 `dcd` uses a [simhash](https://en.wikipedia.org/wiki/SimHash)-based approach inspired by [this paper](https://ieeexplore.ieee.org/document/792593):
 
-1. Files are grouped by extension. Each line is normalized (lowercased, whitespace stripped) and hashed via simhash.
+1. Files are grouped by extension. Each line is normalized (lowercased, whitespace stripped) and hashed via simhash. Lines within `--ignore-blocks-start`/`--ignore-blocks-end` markers are zeroed out and excluded from indexing.
 2. A global hash-to-filename index enables fast candidate filtering — only file pairs sharing enough matching line hashes are compared.
 3. For each candidate pair, a 2D boolean matrix is built comparing all lines.
 4. Diagonal runs in the matrix identify contiguous duplicate sequences.

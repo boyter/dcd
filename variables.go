@@ -21,9 +21,6 @@ var pbmFileA string
 var pbmFileB string
 var pbmOutput string
 var fileByID map[uint32]*duplicateFile
-
-// to be used later for disabling dcd when needed
-const (
-	DUPLICATE_DISABLE = "duplicate-disable"
-	DUPLICATE_ENABLE  = "duplicate-enable"
-)
+var ignoreBlocksStart string
+var ignoreBlocksEnd string
+var formatOutput string

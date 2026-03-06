@@ -37,6 +37,11 @@ func main() {
 				return
 			}
 
+			if (ignoreBlocksStart != "") != (ignoreBlocksEnd != "") {
+				fmt.Println("error: --ignore-blocks-start and --ignore-blocks-end must both be specified together")
+				os.Exit(1)
+			}
+
 			dirFilePaths = args
 			if len(dirFilePaths) == 0 {
 				dirFilePaths = append(dirFilePaths, ".")
@@ -161,6 +166,24 @@ func main() {
 		"pbm-output",
 		"",
 		"output path for PBM scatter plot file",
+	)
+	flags.StringVar(
+		&ignoreBlocksStart,
+		"ignore-blocks-start",
+		"",
+		"marker string to start ignoring lines (e.g. duplicate-disable)",
+	)
+	flags.StringVar(
+		&ignoreBlocksEnd,
+		"ignore-blocks-end",
+		"",
+		"marker string to stop ignoring lines (e.g. duplicate-enable)",
+	)
+	flags.StringVar(
+		&formatOutput,
+		"format",
+		"",
+		"output format: text (default) or json",
 	)
 
 	if err := rootCmd.Execute(); err != nil {
