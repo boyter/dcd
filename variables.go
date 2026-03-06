@@ -17,6 +17,9 @@ var maxGapBridges = 1
 var maxHoleSize = 0
 var duplicatesBothWays = false
 var singleFilePath string
+var pbmFileA string
+var pbmFileB string
+var pbmOutput string
 var fileByID map[uint32]*duplicateFile
 
 // to be used later for disabling dcd when needed

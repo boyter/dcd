@@ -35,6 +35,7 @@ Why use `dcd`?
 - Supports fuzzy matching to catch near-duplicate lines
 - Supports gap tolerance to find duplicate blocks even when lines have been inserted, deleted, or modified
 - Can compare a single file against the rest of a codebase
+- Can generate PBM scatter plot visualizations of the comparison matrix between two files
 
 ### Usage
 
@@ -64,6 +65,9 @@ Flags:
       --max-read-size-bytes int   number of bytes to read into a file with the remaining content ignored (default 10000000)
       --min-line-length int       number of bytes per average line for file to be considered minified (default 255)
       --no-gitignore              disables .gitignore file logic
+      --pbm-file-a string         first file to compare for PBM scatter plot output
+      --pbm-file-b string         second file to compare for PBM scatter plot output
+      --pbm-output string         output path for PBM scatter plot file
       --no-ignore                 disables .ignore file logic
       --process-same-file         find duplicate blocks within the same file
   -v, --verbose                   verbose output
@@ -153,6 +157,25 @@ The `--file` flag compares a single file against the rest of the codebase, usefu
 ```
 $ dcd --file src/utils.go
 ```
+
+#### PBM scatter plot
+
+The `--pbm-file-a`, `--pbm-file-b`, and `--pbm-output` flags generate a [PBM (Portable Bitmap)](https://en.wikipedia.org/wiki/Netpbm#PBM_example) scatter plot of the comparison matrix between two files. This is directly inspired by the scatter plot visualization described in the [Ducasse et al. paper](https://ieeexplore.ieee.org/document/792593) — diagonals represent copied code, holes represent in-place modifications, and broken diagonals represent insertions/deletions.
+
+All three flags must be specified together. When set, normal duplicate scanning is skipped and only the PBM file is produced.
+
+```
+# Compare two files and generate a scatter plot
+$ dcd --pbm-file-a src/utils.go --pbm-file-b src/helpers.go --pbm-output scatter.pbm
+
+# Self-comparison shows the main diagonal plus any internal duplication
+$ dcd --pbm-file-a processor.go --pbm-file-b processor.go --pbm-output self.pbm
+
+# Combine with fuzzy matching for a denser visualization
+$ dcd --pbm-file-a fileA.go --pbm-file-b fileB.go --pbm-output fuzzy.pbm -f 2
+```
+
+The output is a P1 ASCII PBM file where each pixel represents a line pair: black (1) means the lines match, white (0) means they don't. The image can be viewed with any image viewer that supports PBM (GIMP, feh, ImageMagick's `display`, etc.).
 
 #### Same-file duplicates
 

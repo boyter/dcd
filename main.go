@@ -17,6 +17,26 @@ func main() {
 		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org>", version),
 		Version: version,
 		Run: func(cmd *cobra.Command, args []string) {
+			// PBM mode: if any PBM flag is set, validate all three are present
+			pbmFlags := 0
+			if pbmFileA != "" {
+				pbmFlags++
+			}
+			if pbmFileB != "" {
+				pbmFlags++
+			}
+			if pbmOutput != "" {
+				pbmFlags++
+			}
+			if pbmFlags > 0 && pbmFlags < 3 {
+				fmt.Println("error: --pbm-file-a, --pbm-file-b, and --pbm-output must all be specified together")
+				os.Exit(1)
+			}
+			if pbmFlags == 3 {
+				processPBM()
+				return
+			}
+
 			dirFilePaths = args
 			if len(dirFilePaths) == 0 {
 				dirFilePaths = append(dirFilePaths, ".")
@@ -123,6 +143,24 @@ func main() {
 		"file",
 		"",
 		"compare a single file against the rest of the codebase",
+	)
+	flags.StringVar(
+		&pbmFileA,
+		"pbm-file-a",
+		"",
+		"first file to compare for PBM scatter plot output",
+	)
+	flags.StringVar(
+		&pbmFileB,
+		"pbm-file-b",
+		"",
+		"second file to compare for PBM scatter plot output",
+	)
+	flags.StringVar(
+		&pbmOutput,
+		"pbm-output",
+		"",
+		"output path for PBM scatter plot file",
 	)
 
 	if err := rootCmd.Execute(); err != nil {
