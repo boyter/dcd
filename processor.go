@@ -21,7 +21,7 @@ func process() int64 {
 	var duplicateCount int64
 	var fileCount int
 
-	jsonMode := formatOutput == "json"
+	collectMode := formatOutput == "json" || formatOutput == "html"
 	var results []duplicateResult
 	var resultsMu sync.Mutex
 
@@ -38,7 +38,7 @@ func process() int64 {
 					// then loop each of the files
 					fr := processFile(f)
 					atomic.AddInt64(&duplicateCount, int64(fr.DuplicateCount))
-					if jsonMode && len(fr.Matches) > 0 {
+					if collectMode && len(fr.Matches) > 0 {
 						resultsMu.Lock()
 						results = append(results, fr)
 						resultsMu.Unlock()
@@ -76,7 +76,12 @@ func process() int64 {
 		wg.Wait()
 	}
 
-	if jsonMode {
+	if formatOutput == "html" {
+		if results == nil {
+			results = []duplicateResult{}
+		}
+		outputHTML(results, fileCount, duplicateCount)
+	} else if formatOutput == "json" {
 		if results == nil {
 			results = []duplicateResult{}
 		}
@@ -110,7 +115,7 @@ func processFile(f duplicateFile) duplicateResult {
 		return result
 	}
 
-	jsonMode := formatOutput == "json"
+	collectMode := formatOutput == "json" || formatOutput == "html"
 	var sb strings.Builder
 	duplicateSourceLines := map[int]struct{}{}
 	// Filter out all of the possible candidates that could be what we are looking for
@@ -180,7 +185,7 @@ func processFile(f duplicateFile) duplicateResult {
 
 		matches := identifyDuplicateRuns(outer)
 		if len(matches) != 0 {
-			if !jsonMode {
+			if !collectMode {
 				sb.WriteString(fmt.Sprintf("Found duplicate lines in %s:\n", f.Location))
 			}
 			for _, match := range matches {
@@ -188,7 +193,7 @@ func processFile(f duplicateFile) duplicateResult {
 				for l := match.SourceStartLine; l < match.SourceEndLine; l++ {
 					duplicateSourceLines[l] = struct{}{}
 				}
-				if jsonMode {
+				if collectMode {
 					result.Matches = append(result.Matches, matchResult{
 						SourceStartLine: match.SourceStartLine + 1,
 						SourceEndLine:   match.SourceEndLine + 1,
@@ -220,7 +225,7 @@ func processFile(f duplicateFile) duplicateResult {
 		result.DuplicatePercent = float64(result.DuplicateLines) / float64(result.TotalLines) * 100
 	}
 
-	if !jsonMode && sb.Len() != 0 {
+	if !collectMode && sb.Len() != 0 {
 		if result.DuplicateLines > 0 && result.TotalLines > 0 {
 			sb.WriteString(fmt.Sprintf(" %.1f%% duplicate (%d of %d lines)\n", result.DuplicatePercent, result.DuplicateLines, result.TotalLines))
 		}

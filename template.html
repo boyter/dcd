@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dcd — Codebase Duplication Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0b0f;
+    --bg-surface: #12131a;
+    --bg-elevated: #1a1b24;
+    --border: #252633;
+    --border-hover: #3a3b4f;
+    --text: #e2e4ed;
+    --text-dim: #7a7d8e;
+    --text-muted: #4e5064;
+    --accent: #6ee7b7;
+    --accent-dim: #2d6b53;
+    --hot: #ef4444;
+    --warm: #f59e0b;
+    --cool: #3b82f6;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --toolbar-height: 45px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface);
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--text-dim); font-weight: 400; }
+  .breadcrumb {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .breadcrumb a {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .stat-pill .val { color: var(--text); font-weight: 600; }
+  .stat-pill.hot .val { color: var(--hot); }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    border-right: 1px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-title {
+    padding: 0 20px;
+    height: var(--toolbar-height);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+  }
+  .file-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .file-list::-webkit-scrollbar { width: 4px; }
+  .file-list::-webkit-scrollbar-track { background: transparent; }
+  .file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .file-item {
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .file-item:hover { background: var(--bg-elevated); }
+  .file-item.selected {
+    background: var(--bg-elevated);
+    border-left-color: var(--accent);
+  }
+  .file-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+  .file-dup-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dup-bar-track {
+    width: 40px;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .dup-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .dup-pct {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    min-width: 30px;
+    text-align: right;
+  }
+
+  /* Canvas area */
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .canvas-toolbar {
+    padding: 0 24px;
+    height: var(--toolbar-height);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface);
+  }
+  .view-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .view-label span { color: var(--text-dim); font-weight: 400; margin-left: 8px; font-size: 12px; }
+  .toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .btn.active { border-color: var(--accent-dim); color: var(--accent); background: rgba(110,231,183,0.05); }
+
+  .canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: auto;
+    background: var(--bg);
+  }
+
+  canvas#viz {
+    image-rendering: pixelated;
+    transform-origin: 0 0;
+    display: block;
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+  }
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .zoom-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .zoom-level {
+    padding: 0 8px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-elevated);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    display: none;
+    max-width: 320px;
+  }
+  .tooltip .tt-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--accent);
+  }
+  .tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--text-dim);
+  }
+  .tooltip .tt-val { color: var(--text); }
+
+  /* Legend */
+  .legend {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+  .legend-gradient {
+    width: 80px;
+    height: 10px;
+    border-radius: 2px;
+  }
+
+  /* Scatter plot back button */
+  .back-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    background: rgba(110,231,183,0.05);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  .back-btn:hover { background: rgba(110,231,183,0.1); }
+
+
+  /* Info panel for scatter view */
+  .scatter-info {
+    position: fixed;
+    top: auto;
+    bottom: 80px;
+    right: 16px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    display: none;
+    min-width: 200px;
+  }
+  .scatter-info .si-title {
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .scatter-info .si-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    color: var(--text-dim);
+  }
+  .scatter-info .si-val { color: var(--text); }
+  .scatter-info .si-section-title {
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 10px;
+    margin-bottom: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .si-run-item {
+    padding: 4px 8px;
+    margin-bottom: 2px;
+    border-left: 2px solid var(--warm);
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-dim);
+    border-radius: 0 4px 4px 0;
+    transition: background 0.1s;
+  }
+  .si-run-item:hover { background: var(--bg); color: var(--text); }
+  .si-run-item.active { border-left-color: var(--hot); background: var(--bg); color: var(--text); }
+
+  /* Help modal */
+  .help-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .help-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .help-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .help-overlay.visible { display: flex; }
+  .help-modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .help-modal h2 {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .help-modal h3 {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    margin: 16px 0 6px;
+  }
+  .help-modal p { color: var(--text-dim); margin-bottom: 10px; }
+  .help-modal kbd {
+    padding: 2px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+  }
+  .help-modal .close-help {
+    margin-top: 20px;
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .help-modal .close-help:hover { border-color: var(--border-hover); color: var(--text); }
+
+  /* Responsive adjustments */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">dcd<span> codebase map</span></div>
+      <div class="breadcrumb" id="breadcrumb">heatmap view</div>
+    </div>
+    <div class="header-right">
+      <div class="stat-pill"><span>files</span><span class="val" id="stat-files">—</span></div>
+      <div class="stat-pill"><span>lines</span><span class="val" id="stat-lines">—</span></div>
+      <div class="stat-pill hot"><span>dup lines</span><span class="val" id="stat-dup">—</span></div>
+      <button class="help-btn" onclick="toggleHelp()">? help</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-title">Files by duplication</div>
+      <div class="file-list" id="file-list"></div>
+    </div>
+
+    <div class="canvas-area">
+      <div class="canvas-toolbar">
+        <div class="view-label" id="view-label">File × File Heatmap<span>click a cell to drill down</span></div>
+        <div class="toolbar-controls">
+          <button class="back-btn" id="back-btn" onclick="goBack()">← back to heatmap</button>
+          <button class="btn active" id="btn-sort-name" onclick="sortBy('name')">sort: name</button>
+          <button class="btn" id="btn-sort-dup" onclick="sortBy('dup')">sort: duplication</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <canvas id="viz"></canvas>
+        <div class="zoom-controls" id="zoom-controls">
+          <button class="zoom-btn" onclick="zoomFit()" title="Fit to view">⊡</button>
+          <button class="zoom-btn" onclick="zoomBy(-1)" title="Zoom out">−</button>
+          <span class="zoom-level" id="zoom-level">100%</span>
+          <button class="zoom-btn" onclick="zoomBy(1)" title="Zoom in">+</button>
+        </div>
+        <div class="scatter-info" id="scatter-info">
+          <div class="si-title" id="si-title"></div>
+          <div class="si-row"><span id="si-label-a">file A</span> lines<span class="si-val" id="si-lines-a"></span></div>
+          <div class="si-row"><span id="si-label-b">file B</span> lines<span class="si-val" id="si-lines-b"></span></div>
+          <div class="si-row">matching lines<span class="si-val" id="si-match"></span></div>
+          <div class="si-section-title" id="si-runs-title" style="display:none">Duplicate blocks</div>
+          <div id="si-runs"></div>
+        </div>
+      </div>
+
+      <div class="legend" id="legend">
+        <div class="legend-item">
+          <canvas class="legend-gradient" id="legend-gradient" width="80" height="10"></canvas>
+          <span>0% → 100% shared lines</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background: var(--warm);"></div>
+          <span>diagonal = copied block</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-swatch" style="background: #3a3b4f;"></div>
+          <span>dot = single matching line</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-row">duplication<span class="tt-val" id="tt-dup"></span></div>
+  <div class="tt-row">shared lines<span class="tt-val" id="tt-shared"></span></div>
+</div>
+
+<div class="help-overlay" id="help-overlay" onclick="if(event.target===this)toggleHelp()">
+  <div class="help-modal">
+    <h2>dcd — duplicate code detector</h2>
+    <p>This report shows code duplication across your codebase. It is generated
+    by <strong>dcd</strong>, a tool that identifies duplicate or near-duplicate
+    code blocks by comparing normalized line hashes across all files.</p>
+
+    <h3>Heatmap view</h3>
+    <p>The main grid is a file × file matrix. Each cell's color represents how
+    much code two files share — darker blue means little overlap, red means
+    heavy duplication. The diagonal is always dark (a file compared to itself
+    is excluded). Hover over any cell to see the file pair and duplication
+    percentage.</p>
+
+    <h3>Scatter plot view</h3>
+    <p>Click any heatmap cell to drill down into a Ducasse-style dot matrix for
+    that file pair. Each dot means the line at that row in file A matches the
+    line at that column in file B. Diagonal runs of dots indicate copied or
+    moved blocks of code. Scattered dots are common boilerplate (braces,
+    blank lines, imports).</p>
+
+    <h3>Sidebar</h3>
+    <p>Lists all files sorted by their highest duplication percentage against
+    any other file. Click a file to highlight it.</p>
+
+    <h3>Controls</h3>
+    <p><kbd>sort: name</kbd> / <kbd>sort: duplication</kbd> — reorder the
+    heatmap axes.<br>
+    <kbd>Ctrl</kbd>+<kbd>scroll</kbd> — zoom in/out on the heatmap.<br>
+    <kbd>+</kbd> <kbd>−</kbd> <kbd>⊡</kbd> — zoom controls (bottom-right).<br>
+    Scroll to pan when zoomed in.<br>
+    <kbd>← back to heatmap</kbd> — return from scatter view.</p>
+
+    <h3>Header stats</h3>
+    <p><strong>files</strong> — total files scanned.
+    <strong>lines</strong> — total source lines across all files.
+    <strong>dup lines</strong> — total duplicate lines detected.</p>
+
+    <h3>Further reading</h3>
+    <p>The detection algorithm is based on Ducasse et al.'s dot-matrix approach:<br>
+    <a href="https://ieeexplore.ieee.org/document/792593" target="_blank" rel="noopener">A Language Independent Approach for Detecting Duplicated Code (IEEE)</a><br>
+    <a href="https://scg.unibe.ch/archive/papers/Duca99bCodeDuplication.pdf" target="_blank" rel="noopener">A Language Independent Approach for Detecting Duplicated Code (PDF)</a></p>
+
+    <button class="close-help" onclick="toggleHelp()">close</button>
+  </div>
+</div>
+
+<script>
+// ─── Data from dcd ─────────────────────────────────────────────────
+window.DCD_DATA = /* __DCD_DATA__ */;
+
+const DCD = window.DCD_DATA;
+
+function buildMatrix(d) {
+  const n = d.files.length;
+  const m = Array.from({length: n}, () => new Float32Array(n));
+  for (let i = 0; i < n; i++) m[i][i] = 1.0;
+  if (d.pairs) {
+    d.pairs.forEach(p => {
+      m[p.a][p.b] = p.percent / 100;
+      m[p.b][p.a] = p.percent / 100;
+    });
+  }
+  return m;
+}
+
+const data = {
+  files: DCD.files.map(f => ({ ...f, name: f.path, dupPercent: Math.round(f.dupPercent) })),
+  dupMatrix: buildMatrix(DCD)
+};
+
+let sortedIndices = data.files.map((_, i) => i);
+let currentSort = 'name';
+let viewMode = 'heatmap';
+let scatterPair = null;
+let scatterRuns = [];
+let scatterScale = 1;
+let activeRun = null;
+let highlightedFileId = null;
+
+const canvas = document.getElementById('viz');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const wrapper = document.getElementById('canvas-wrapper');
+
+// ─── Stats ─────────────────────────────────────────────────────────
+
+document.getElementById('stat-files').textContent = DCD.summary.totalFiles;
+document.getElementById('stat-lines').textContent = DCD.summary.totalLines.toLocaleString();
+document.getElementById('stat-dup').textContent = DCD.summary.totalDuplicateLines.toLocaleString();
+
+// ─── Legend gradient ───────────────────────────────────────────────
+
+const lgCanvas = document.getElementById('legend-gradient');
+const lgCtx = lgCanvas.getContext('2d');
+const lgGrad = lgCtx.createLinearGradient(0, 0, 80, 0);
+lgGrad.addColorStop(0, '#12131a');
+lgGrad.addColorStop(0.3, '#1e3a5f');
+lgGrad.addColorStop(0.6, '#f59e0b');
+lgGrad.addColorStop(1, '#ef4444');
+lgCtx.fillStyle = lgGrad;
+lgCtx.fillRect(0, 0, 80, 10);
+
+// ─── Color helpers ─────────────────────────────────────────────────
+
+function dupColor(value) {
+  if (value < 0.01) return '#12131a';
+  if (value < 0.05) return '#162035';
+  if (value < 0.1) return '#1e3a5f';
+  if (value < 0.2) return '#2563eb';
+  if (value < 0.35) return '#d97706';
+  if (value < 0.5) return '#f59e0b';
+  if (value < 0.7) return '#ef6a44';
+  return '#ef4444';
+}
+
+function barColor(pct) {
+  if (pct < 10) return '#3b82f6';
+  if (pct < 25) return '#f59e0b';
+  if (pct < 50) return '#ef6a44';
+  return '#ef4444';
+}
+
+// ─── File list ─────────────────────────────────────────────────────
+
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  const sorted = [...data.files].sort((a, b) => b.dupPercent - a.dupPercent);
+  el.innerHTML = sorted.map(f => `
+    <div class="file-item" data-id="${f.id}" onclick="highlightFile(${f.id})">
+      <div class="file-name" title="${f.name}">${f.name}</div>
+      <div class="file-dup-bar">
+        <div class="dup-bar-track">
+          <div class="dup-bar-fill" style="width:${f.dupPercent}%;background:${barColor(f.dupPercent)}"></div>
+        </div>
+        <div class="dup-pct">${f.dupPercent}%</div>
+      </div>
+    </div>
+  `).join('');
+}
+renderFileList();
+
+function highlightFile(id) {
+  // Toggle: clicking the same file again deselects
+  highlightedFileId = (highlightedFileId === id) ? null : id;
+  document.querySelectorAll('.file-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.id) === highlightedFileId);
+  });
+  if (viewMode === 'heatmap') renderHeatmap();
+}
+
+// ─── Heatmap rendering ────────────────────────────────────────────
+
+// ─── Zoom state ────────────────────────────────────────────────────
+
+let currentZoom = 1;
+let baseCellSize = 4; // will be computed per render
+
+function applyZoom(zoom) {
+  currentZoom = zoom;
+  canvas.style.transform = `scale(${zoom})`;
+  document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+}
+
+function zoomBy(dir) {
+  const steps = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
+  let idx = steps.indexOf(currentZoom);
+  if (idx < 0) {
+    // find nearest
+    idx = steps.findIndex(s => s >= currentZoom);
+    if (idx < 0) idx = steps.length - 1;
+  }
+  idx += dir;
+  idx = Math.max(0, Math.min(steps.length - 1, idx));
+  applyZoom(steps[idx]);
+}
+
+function zoomFit() {
+  if (canvas.width === 0 || canvas.height === 0) return;
+  const fit = Math.min(wrapper.clientWidth / canvas.width, wrapper.clientHeight / canvas.height, 1);
+  applyZoom(fit);
+}
+
+wrapper.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const rect = wrapper.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const cx = (wrapper.scrollLeft + mx) / currentZoom;
+  const cy = (wrapper.scrollTop + my) / currentZoom;
+  zoomBy(e.deltaY < 0 ? 1 : -1);
+  wrapper.scrollLeft = cx * currentZoom - mx;
+  wrapper.scrollTop = cy * currentZoom - my;
+}, { passive: false });
+
+function renderHeatmap() {
+  viewMode = 'heatmap';
+  const n = data.files.length;
+
+  // Pick cell size: fit viewport if cells >= 4px, otherwise use 4px minimum
+  const fitSize = Math.floor(Math.min(wrapper.clientWidth, wrapper.clientHeight) / n);
+  baseCellSize = Math.max(fitSize, 4);
+  baseCellSize = Math.min(baseCellSize, 28);
+  const cellSize = baseCellSize;
+  const size = cellSize * n;
+
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.style.cursor = 'pointer';
+
+  const fit = Math.min(wrapper.clientWidth / size, wrapper.clientHeight / size, 1);
+  applyZoom(fit);
+
+  ctx.fillStyle = '#0a0b0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const gap = cellSize > 3 ? 1 : 0;
+  for (let yi = 0; yi < n; yi++) {
+    for (let xi = 0; xi < n; xi++) {
+      const fi = sortedIndices[yi];
+      const fj = sortedIndices[xi];
+      const val = data.dupMatrix[fi][fj];
+
+      if (fi === fj) {
+        ctx.fillStyle = '#1a1b24';
+      } else {
+        ctx.fillStyle = dupColor(val);
+      }
+
+      ctx.fillRect(xi * cellSize, yi * cellSize, cellSize - gap, cellSize - gap);
+    }
+  }
+
+  // Highlight row + column for selected file
+  if (highlightedFileId !== null) {
+    const idx = sortedIndices.indexOf(highlightedFileId);
+    if (idx >= 0) {
+      // Dim everything not in the highlighted row/column
+      ctx.fillStyle = 'rgba(10, 11, 15, 0.6)';
+      ctx.fillRect(0, 0, size, size);
+
+      // Redraw the highlighted row and column cells brightly
+      for (let i = 0; i < n; i++) {
+        const fi = sortedIndices[idx];
+        const fj = sortedIndices[i];
+        if (fi === fj) continue;
+        const val = data.dupMatrix[fi][fj];
+        if (val < 0.01) continue;
+
+        // Row cell (file's row)
+        ctx.fillStyle = dupColor(val);
+        ctx.fillRect(i * cellSize, idx * cellSize, cellSize - gap, cellSize - gap);
+        // Column cell (file's column)
+        ctx.fillRect(idx * cellSize, i * cellSize, cellSize - gap, cellSize - gap);
+      }
+
+      // Draw accent border on the row and column
+      ctx.strokeStyle = 'rgba(110, 231, 183, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, idx * cellSize - 0.5, size, cellSize + 1);
+      ctx.strokeRect(idx * cellSize - 0.5, 0, cellSize + 1, size);
+    }
+  }
+
+  document.getElementById('view-label').innerHTML = 'File × File Heatmap<span>click a cell to drill down · scroll to pan · ctrl+wheel to zoom</span>';
+  document.getElementById('back-btn').style.display = 'none';
+  document.getElementById('scatter-info').style.display = 'none';
+  document.getElementById('zoom-controls').style.display = 'flex';
+  document.getElementById('breadcrumb').textContent = 'heatmap view';
+  document.getElementById('btn-sort-name').style.display = '';
+  document.getElementById('btn-sort-dup').style.display = '';
+}
+
+// ─── Scatter plot rendering ────────────────────────────────────────
+
+// Build a lookup from pair key "a,b" to pair data for quick access
+const pairLookup = {};
+if (DCD.pairs) {
+  DCD.pairs.forEach(p => {
+    pairLookup[p.a + ',' + p.b] = p;
+    pairLookup[p.b + ',' + p.a] = p;
+  });
+}
+
+function generateScatterData(fi, fj) {
+  const linesA = data.files[fi].lines;
+  const linesB = data.files[fj].lines;
+  const points = [];
+  let runs = [];
+
+  // Look up pair data for runs
+  const key1 = fi + ',' + fj;
+  const key2 = fj + ',' + fi;
+  const pair = pairLookup[key1] || pairLookup[key2];
+  if (pair && pair.matches) {
+    const swapped = (pair.a !== fi);
+    runs = pair.matches.map((m, idx) => ({
+      idx,
+      sourceStart: swapped ? m.targetStart : m.sourceStart,
+      sourceEnd: swapped ? m.targetEnd : m.sourceEnd,
+      targetStart: swapped ? m.sourceStart : m.targetStart,
+      targetEnd: swapped ? m.sourceEnd : m.targetEnd,
+      length: m.length,
+      gaps: m.gaps || 0,
+      holes: m.holes || 0,
+    }));
+  }
+
+  // Try to use hashes for exact dot-plot
+  if (DCD.hashes) {
+    const hashesA = DCD.hashes[String(fi)];
+    const hashesB = DCD.hashes[String(fj)];
+    if (hashesA && hashesB) {
+      // Build index of hash -> line positions in B
+      const bIndex = {};
+      for (let j = 0; j < hashesB.length; j++) {
+        const h = hashesB[j];
+        if (h === 0) continue; // skip empty/filtered lines
+        if (!bIndex[h]) bIndex[h] = [];
+        bIndex[h].push(j);
+      }
+      for (let i = 0; i < hashesA.length; i++) {
+        const h = hashesA[i];
+        if (h === 0) continue;
+        const matches = bIndex[h];
+        if (matches) {
+          for (let k = 0; k < matches.length; k++) {
+            points.push([i, matches[k]]);
+          }
+        }
+      }
+      return { linesA, linesB, points, matchCount: points.length, runs };
+    }
+  }
+
+  // Fallback: use match segments from pair data to draw diagonals
+  if (pair && pair.matches) {
+    const swapped = (pair.a !== fi);
+    pair.matches.forEach(m => {
+      const srcStart = swapped ? m.targetStart : m.sourceStart;
+      const tgtStart = swapped ? m.sourceStart : m.targetStart;
+      for (let k = 0; k < m.length; k++) {
+        points.push([srcStart + k, tgtStart + k]);
+      }
+    });
+  }
+
+  return { linesA, linesB, points, matchCount: points.length, runs };
+}
+
+function drawScatterCanvas(sd, scale, highlightRunIdx) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const runs = sd.runs || [];
+
+  // Dark background
+  ctx.fillStyle = '#0a0b0f';
+  ctx.fillRect(0, 0, w, h);
+
+  // Adaptive grid lines
+  function niceGridStep(maxLines) {
+    const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    for (const s of steps) {
+      if (maxLines / s <= 20) return s;
+    }
+    return Math.ceil(maxLines / 10 / 1000) * 1000;
+  }
+  const gridStep = niceGridStep(Math.max(sd.linesA, sd.linesB));
+
+  ctx.strokeStyle = '#151620';
+  ctx.lineWidth = 1;
+  for (let i = gridStep; i < sd.linesA; i += gridStep) {
+    const x = i * scale;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let i = gridStep; i < sd.linesB; i += gridStep) {
+    const y = i * scale;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Build set of run-point keys for coloring
+  const runPointSet = new Set();
+  const runPointToRun = {};
+  for (const run of runs) {
+    if (run.gaps > 0 || run.holes > 0) {
+      // For runs with gaps/holes, use bounding-box membership
+      // Points within the bounding box that are actual points will be matched below
+      for (let si = run.sourceStart; si <= run.sourceEnd; si++) {
+        for (let ti = run.targetStart; ti <= run.targetEnd; ti++) {
+          const key = si + ',' + ti;
+          runPointSet.add(key);
+          runPointToRun[key] = run;
+        }
+      }
+    } else {
+      for (let k = 0; k < run.length; k++) {
+        const key = (run.sourceStart + k) + ',' + (run.targetStart + k);
+        runPointSet.add(key);
+        runPointToRun[key] = run;
+      }
+    }
+  }
+
+  // Two-pass rendering: dim non-run points, orange run points
+  sd.points.forEach(([a, b]) => {
+    const key = a + ',' + b;
+    const inRun = runPointSet.has(key);
+    const run = inRun ? runPointToRun[key] : null;
+
+    if (inRun && highlightRunIdx !== undefined && run && run.idx === highlightRunIdx) {
+      ctx.fillStyle = '#ef4444'; // active run: red
+    } else if (inRun) {
+      ctx.fillStyle = '#f59e0b'; // run point: orange
+    } else {
+      ctx.fillStyle = '#3a3b4f'; // non-run: dim
+    }
+    ctx.fillRect(a * scale, b * scale, scale, scale);
+  });
+}
+
+function renderScatter(fi, fj) {
+  if (viewMode !== 'scatter') {
+    history.pushState({ view: 'scatter' }, '');
+  }
+  viewMode = 'scatter';
+  scatterPair = [fi, fj];
+  activeRun = null;
+  const sd = generateScatterData(fi, fj);
+  scatterRuns = sd.runs || [];
+
+  // Use 2px per line minimum, up to 4px
+  const maxDim = Math.max(sd.linesA, sd.linesB);
+  const fitScale = Math.floor(Math.min(wrapper.clientWidth, wrapper.clientHeight) / maxDim);
+  const scale = Math.max(Math.min(fitScale, 4), 2);
+  scatterScale = scale;
+
+  const w = sd.linesA * scale;
+  const h = sd.linesB * scale;
+
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.style.cursor = 'crosshair';
+
+  // Zoom to fit, capped at 1x
+  const fit = Math.min(wrapper.clientWidth / w, wrapper.clientHeight / h, 1);
+  applyZoom(fit);
+
+  // Store scatter data for redraws
+  canvas._scatterData = sd;
+
+  drawScatterCanvas(sd, scale, undefined);
+
+  // UI updates
+  const nameA = data.files[fi].name;
+  const nameB = data.files[fj].name;
+  document.getElementById('view-label').innerHTML =
+    `Scatter Plot<span>A (x): ${nameA} &nbsp;·&nbsp; B (y): ${nameB}</span>`;
+  document.getElementById('back-btn').style.display = 'inline-block';
+  document.getElementById('btn-sort-name').style.display = 'none';
+  document.getElementById('btn-sort-dup').style.display = 'none';
+  document.getElementById('zoom-controls').style.display = 'flex';
+  document.getElementById('breadcrumb').innerHTML =
+    `<a onclick="goBack()">heatmap</a> → scatter`;
+
+  const si = document.getElementById('scatter-info');
+  si.style.display = 'block';
+  document.getElementById('si-title').textContent = nameA + ' × ' + nameB;
+  document.getElementById('si-label-a').textContent = 'A ';
+  document.getElementById('si-label-b').textContent = 'B ';
+  document.getElementById('si-lines-a').textContent = sd.linesA;
+  document.getElementById('si-lines-b').textContent = sd.linesB;
+  document.getElementById('si-match').textContent = sd.matchCount;
+
+  // Populate run list
+  const runsTitle = document.getElementById('si-runs-title');
+  const runsEl = document.getElementById('si-runs');
+  if (scatterRuns.length > 0) {
+    runsTitle.style.display = 'block';
+    runsEl.innerHTML = scatterRuns.map((r, i) => {
+      const extra = (r.gaps > 0 ? ` +${r.gaps}g` : '') + (r.holes > 0 ? ` +${r.holes}h` : '');
+      return `<div class="si-run-item" data-run="${i}" onclick="showRunDetail(${i})">`
+        + `#${i+1}: A:${r.sourceStart+1}-${r.sourceEnd+1} B:${r.targetStart+1}-${r.targetEnd+1} (${r.length}L${extra})</div>`;
+    }).join('');
+  } else {
+    runsTitle.style.display = 'none';
+    runsEl.innerHTML = '';
+  }
+}
+
+function showRunDetail(runIdx) {
+  const run = scatterRuns[runIdx];
+  if (!run) return;
+
+  if (activeRun === runIdx) {
+    hideRunDetail();
+    return;
+  }
+  activeRun = runIdx;
+
+  // Highlight in list
+  document.querySelectorAll('.si-run-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.run) === runIdx);
+  });
+
+  // Redraw with highlighted run
+  const sd = canvas._scatterData;
+  if (sd) drawScatterCanvas(sd, scatterScale, runIdx);
+}
+
+function hideRunDetail() {
+  activeRun = null;
+  document.querySelectorAll('.si-run-item').forEach(el => el.classList.remove('active'));
+  const sd = canvas._scatterData;
+  if (sd) drawScatterCanvas(sd, scatterScale, undefined);
+}
+
+function hitTestRun(lineX, lineY) {
+  for (const run of scatterRuns) {
+    if (run.gaps > 0 || run.holes > 0) {
+      // Bounding box test for runs with gaps/holes
+      if (lineX >= run.sourceStart && lineX <= run.sourceEnd &&
+          lineY >= run.targetStart && lineY <= run.targetEnd) {
+        return run;
+      }
+    } else {
+      // Strict diagonal test
+      const offset = lineX - run.sourceStart;
+      if (offset >= 0 && offset < run.length && lineY === run.targetStart + offset) {
+        return run;
+      }
+    }
+  }
+  return null;
+}
+
+// ─── Interaction ───────────────────────────────────────────────────
+
+function canvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  // getBoundingClientRect includes CSS transform (zoom), so this gives correct coords
+  const x = (e.clientX - rect.left) / (rect.width / canvas.width);
+  const y = (e.clientY - rect.top) / (rect.height / canvas.height);
+  return { x, y };
+}
+
+canvas.addEventListener('click', (e) => {
+  if (viewMode === 'heatmap') {
+    const { x, y } = canvasCoords(e);
+    const n = data.files.length;
+    const cellSize = baseCellSize;
+    const xi = Math.floor(x / cellSize);
+    const yi = Math.floor(y / cellSize);
+    if (xi >= 0 && xi < n && yi >= 0 && yi < n) {
+      const fi = sortedIndices[xi];
+      const fj = sortedIndices[yi];
+      if (fi !== fj) {
+        renderScatter(fi, fj);
+      }
+    }
+  } else if (viewMode === 'scatter') {
+    const { x, y } = canvasCoords(e);
+    const lineX = Math.floor(x / scatterScale);
+    const lineY = Math.floor(y / scatterScale);
+    const run = hitTestRun(lineX, lineY);
+    if (run) {
+      showRunDetail(run.idx);
+    } else {
+      hideRunDetail();
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (viewMode === 'heatmap') {
+    const { x, y } = canvasCoords(e);
+    const n = data.files.length;
+    const cellSize = baseCellSize;
+    const xi = Math.floor(x / cellSize);
+    const yi = Math.floor(y / cellSize);
+
+    if (xi >= 0 && xi < n && yi >= 0 && yi < n) {
+      const fi = sortedIndices[xi];
+      const fj = sortedIndices[yi];
+      if (fi === fj) {
+        tooltip.style.display = 'none';
+        return;
+      }
+      const val = data.dupMatrix[fi][fj];
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top = (e.clientY + 14) + 'px';
+      document.getElementById('tt-title').textContent =
+        data.files[fi].name + ' × ' + data.files[fj].name;
+      document.getElementById('tt-dup').textContent = (val * 100).toFixed(1) + '%';
+      const sharedLines = Math.round(Math.min(data.files[fi].lines, data.files[fj].lines) * val);
+      document.getElementById('tt-shared').textContent = '~' + sharedLines;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  } else if (viewMode === 'scatter') {
+    const { x, y } = canvasCoords(e);
+    const lineX = Math.floor(x / scatterScale);
+    const lineY = Math.floor(y / scatterScale);
+    const run = hitTestRun(lineX, lineY);
+    if (run) {
+      canvas.style.cursor = 'pointer';
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top = (e.clientY + 14) + 'px';
+      const extra = (run.gaps > 0 ? `, ${run.gaps} gaps` : '') + (run.holes > 0 ? `, ${run.holes} holes` : '');
+      document.getElementById('tt-title').textContent = `Block #${run.idx + 1}`;
+      document.getElementById('tt-dup').textContent = `${run.length} lines${extra}`;
+      document.getElementById('tt-shared').textContent =
+        `A:${run.sourceStart+1}-${run.sourceEnd+1} B:${run.targetStart+1}-${run.targetEnd+1}`;
+    } else {
+      canvas.style.cursor = 'crosshair';
+      tooltip.style.display = 'none';
+    }
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  tooltip.style.display = 'none';
+});
+
+// Middle-click drag to pan
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let scrollStartX = 0, scrollStartY = 0;
+
+wrapper.addEventListener('mousedown', (e) => {
+  if (e.button === 1) {
+    e.preventDefault();
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    scrollStartX = wrapper.scrollLeft;
+    scrollStartY = wrapper.scrollTop;
+    wrapper.style.cursor = 'grabbing';
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isPanning) return;
+  wrapper.scrollLeft = scrollStartX - (e.clientX - panStartX);
+  wrapper.scrollTop = scrollStartY - (e.clientY - panStartY);
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (e.button === 1 && isPanning) {
+    isPanning = false;
+    wrapper.style.cursor = '';
+  }
+});
+
+// Prevent middle-click auto-scroll icon
+wrapper.addEventListener('click', (e) => {
+  if (e.button === 1) e.preventDefault();
+});
+wrapper.addEventListener('auxclick', (e) => {
+  if (e.button === 1) e.preventDefault();
+});
+
+// Mouse back button / browser back navigates from scatter to heatmap
+window.addEventListener('popstate', (e) => {
+  if (viewMode === 'scatter') {
+    goBack();
+  }
+});
+
+// ─── Controls ──────────────────────────────────────────────────────
+
+function sortBy(mode) {
+  currentSort = mode;
+  if (mode === 'name') {
+    sortedIndices = [...sortedIndices].sort((a, b) =>
+      data.files[a].name.localeCompare(data.files[b].name));
+  } else {
+    sortedIndices = [...sortedIndices].sort((a, b) =>
+      data.files[b].dupPercent - data.files[a].dupPercent);
+  }
+  document.getElementById('btn-sort-name').classList.toggle('active', mode === 'name');
+  document.getElementById('btn-sort-dup').classList.toggle('active', mode === 'dup');
+  renderHeatmap();
+}
+
+function goBack() {
+  renderHeatmap();
+}
+
+function toggleHelp() {
+  document.getElementById('help-overlay').classList.toggle('visible');
+}
+
+// ─── Init ──────────────────────────────────────────────────────────
+
+window.addEventListener('resize', () => {
+  if (viewMode === 'heatmap') renderHeatmap();
+  else if (scatterPair) renderScatter(scatterPair[0], scatterPair[1]);
+});
+
+sortBy('name');
+</script>
+</body>
+</html>

@@ -197,7 +197,7 @@ func main() {
 		&formatOutput,
 		"format",
 		"",
-		"output format: text (default) or json",
+		"output format: text (default), json, or html",
 	)
 	flags.IntVar(
 		&duplicateThreshold,
