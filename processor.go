@@ -15,8 +15,6 @@ import (
 	"github.com/mfonda/simhash"
 )
 
-var processedPairs sync.Map
-
 func process() int64 {
 	extensionFileMap := selectFiles()
 
@@ -51,7 +49,6 @@ func process() int64 {
 	// loop the files for each language bucket, java,c,go
 	var completedExtensions int
 	for ext, files := range extensionFileMap {
-		processedPairs = sync.Map{}
 		channel := make(chan duplicateFile)
 		var wg sync.WaitGroup
 
@@ -251,14 +248,11 @@ func processFile(f duplicateFile) duplicateResult {
 		}
 
 		if !duplicatesBothWays && !sameFile {
-			// Pack two uint32 IDs into one uint64 for pair dedup
-			var pairKey uint64
-			if f.ID < candidateID {
-				pairKey = uint64(f.ID)<<32 | uint64(candidateID)
-			} else {
-				pairKey = uint64(candidateID)<<32 | uint64(f.ID)
-			}
-			if _, seen := processedPairs.LoadOrStore(pairKey, struct{}{}); seen {
+			// Only compare each pair once: the file with the smaller ID
+			// does the comparison. This eliminates the need for a pair-tracking
+			// map entirely (previously a sync.Map that could use 60GB+ on
+			// large codebases like the Linux kernel).
+			if candidateID < f.ID {
 				continue
 			}
 		}

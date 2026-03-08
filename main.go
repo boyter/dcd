@@ -3,22 +3,36 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/pprof"
 
 	"github.com/boyter/scc/v3/processor"
 	"github.com/spf13/cobra"
 )
 
-func main() {
-	//f, _ := os.Create("profile.pprof")
-	//_ = pprof.StartCPUProfile(f)
-	//defer pprof.StopCPUProfile()
+var cpuProfile string
 
+func main() {
 	rootCmd := &cobra.Command{
 		Use:     "dcd",
 		Short:   "dcd",
 		Long:    fmt.Sprintf("dcd\nVersion %s\nBen Boyter <ben@boyter.org>", version),
 		Version: version,
 		Run: func(cmd *cobra.Command, args []string) {
+			if cpuProfile != "" {
+				f, err := os.Create(cpuProfile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "could not create CPU profile: %s\n", err)
+					os.Exit(1)
+				}
+				if err := pprof.StartCPUProfile(f); err != nil {
+					f.Close()
+					fmt.Fprintf(os.Stderr, "could not start CPU profile: %s\n", err)
+					os.Exit(1)
+				}
+				defer pprof.StopCPUProfile()
+				defer f.Close()
+			}
+
 			// PBM mode: if any PBM flag is set, validate all three are present
 			pbmFlags := 0
 			if pbmFileA != "" {
@@ -59,6 +73,9 @@ func main() {
 			}
 
 			duplicateCount := process()
+			if cpuProfile != "" {
+				pprof.StopCPUProfile()
+			}
 			if duplicateThreshold >= 0 && duplicateCount > int64(duplicateThreshold) {
 				os.Exit(1)
 			}
@@ -228,6 +245,12 @@ func main() {
 		"progress",
 		false,
 		"show progress on stderr",
+	)
+	flags.StringVar(
+		&cpuProfile,
+		"cpu-profile",
+		"",
+		"write CPU profile to file (for use with go tool pprof or PGO)",
 	)
 
 	if err := rootCmd.Execute(); err != nil {
