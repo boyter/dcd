@@ -56,7 +56,7 @@ Flags:
       --duplicates-both-ways         report duplicates from both file perspectives (default reports each pair once)
   -x, --exclude-pattern strings      file and directory locations matching case sensitive patterns will be ignored [comma separated list: e.g. vendor,_test.go]
       --file string                  compare a single file against the rest of the codebase
-      --format string                output format: text (default) or json
+      --format string                output format: text (default), json, or html
   -f, --fuzz uint8                   fuzzy value where higher numbers allow increasingly fuzzy lines to match, values 0-255 where 0 indicates exact match
   -g, --gap-tolerance int            allow gaps of up to N lines when matching duplicate blocks (0 = no gaps allowed)
   -h, --help                         help for dcd
@@ -270,6 +270,24 @@ $ dcd --format json . | jq '.summary'
 $ dcd --format json . | jq '.files[] | select(.duplicatePercent > 50) | .path'
 ```
 
+#### HTML report
+
+The `--format html` flag generates a self-contained interactive HTML report for visually exploring duplication across your codebase. This is mostly a vanity output — it looks great and is useful for presentations, code reviews, or just getting a feel for where duplication lives in a project.
+
+```
+$ dcd --format html --duplicate-threshold -1 . > report.html
+```
+
+The report includes:
+
+- **File × File heatmap** — a matrix showing duplication intensity between every file pair. Click any cell to drill down.
+- **Scatter plot** — a Ducasse-style dot matrix for a selected file pair. Diagonal runs indicate copied blocks; scattered dots are common boilerplate.
+- **Sidebar** — files ranked by their highest duplication percentage against any other file.
+
+| Heatmap | Heatmap with selection | Scatter plot |
+|:---:|:---:|:---:|
+| ![Heatmap](screenshots/dcd_html_1.png) | ![Heatmap with selection](screenshots/dcd_html_2.png) | ![Scatter plot](screenshots/dcd_html_3.png) |
+
 ### Ignore Files
 
 `dcd` supports .ignore files inside directories that it scans. This is similar to how ripgrep, ag and tokei work.
@@ -322,7 +340,7 @@ GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" && zip -r9 dcd-1.0.0-arm64-unk
 | Fuzzy / near-duplicate matching | ✅ `--fuzz` (simhash distance) | ❌ exact token matching only |
 | Gap tolerance (inserted/deleted lines) | ✅ `--gap-tolerance` | ❌ |
 | Hole tolerance (in-place modifications) | ✅ `--max-hole-size` | ❌ |
-| JSON output | ✅ `--format json` | ✅ XML, YAML, plain, emacs, vs |
+| Structured output | ✅ JSON, interactive HTML report | ✅ XML, YAML, plain, emacs, vs |
 | Per-file duplication percentage | ✅ | ❌ |
 | CI exit code on duplication | ✅ `--duplicate-threshold` | ✅ `failOnDuplication` |
 | `.gitignore` / `.ignore` support | ✅ | ❌ |

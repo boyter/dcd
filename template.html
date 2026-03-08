@@ -363,6 +363,8 @@
     font-size: 11px;
     display: none;
     min-width: 200px;
+    max-height: 20vh;
+    overflow-y: auto;
   }
   .scatter-info .si-title {
     font-weight: 600;
@@ -628,6 +630,8 @@ let scatterRuns = [];
 let scatterScale = 1;
 let activeRun = null;
 let highlightedFileId = null;
+let savedScrollLeft = 0;
+let savedScrollTop = 0;
 
 const canvas = document.getElementById('viz');
 const ctx = canvas.getContext('2d');
@@ -907,11 +911,16 @@ function drawScatterCanvas(sd, scale, highlightRunIdx) {
   const h = canvas.height;
   const runs = sd.runs || [];
 
-  // Dark background
-  ctx.fillStyle = '#0a0b0f';
-  ctx.fillRect(0, 0, w, h);
+  // Use ImageData for fast pixel-level rendering (critical for millions of points)
+  const imgData = ctx.createImageData(w, h);
+  const buf = imgData.data;
 
-  // Adaptive grid lines
+  // Fill background: #0a0b0f
+  for (let i = 0; i < buf.length; i += 4) {
+    buf[i] = 10; buf[i+1] = 11; buf[i+2] = 15; buf[i+3] = 255;
+  }
+
+  // Draw grid lines into the buffer
   function niceGridStep(maxLines) {
     const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
     for (const s of steps) {
@@ -920,60 +929,130 @@ function drawScatterCanvas(sd, scale, highlightRunIdx) {
     return Math.ceil(maxLines / 10 / 1000) * 1000;
   }
   const gridStep = niceGridStep(Math.max(sd.linesA, sd.linesB));
-
-  ctx.strokeStyle = '#151620';
-  ctx.lineWidth = 1;
+  // Grid color: #151620
   for (let i = gridStep; i < sd.linesA; i += gridStep) {
     const x = i * scale;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    for (let s = 0; s < scale; s++) {
+      const px = x + s;
+      if (px >= w) break;
+      for (let y = 0; y < h; y++) {
+        const off = (y * w + px) * 4;
+        buf[off] = 21; buf[off+1] = 22; buf[off+2] = 32;
+      }
+    }
   }
   for (let i = gridStep; i < sd.linesB; i += gridStep) {
     const y = i * scale;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    for (let s = 0; s < scale; s++) {
+      const py = y + s;
+      if (py >= h) break;
+      const rowOff = py * w * 4;
+      for (let x = 0; x < w; x++) {
+        const off = rowOff + x * 4;
+        buf[off] = 21; buf[off+1] = 22; buf[off+2] = 32;
+      }
+    }
   }
 
-  // Build set of run-point keys for coloring
-  const runPointSet = new Set();
-  const runPointToRun = {};
-  for (const run of runs) {
-    if (run.gaps > 0 || run.holes > 0) {
-      // For runs with gaps/holes, use bounding-box membership
-      // Points within the bounding box that are actual points will be matched below
-      for (let si = run.sourceStart; si <= run.sourceEnd; si++) {
-        for (let ti = run.targetStart; ti <= run.targetEnd; ti++) {
-          const key = si + ',' + ti;
-          runPointSet.add(key);
-          runPointToRun[key] = run;
+  // Build run membership lookup using a flat typed array keyed by
+  // (source * linesB + target). For very large pairs where this would
+  // exceed memory, fall back to tagging only diagonal cells from runs.
+  const totalCells = sd.linesA * sd.linesB;
+  const useFlat = totalCells <= 50000000; // ~50M cells = ~50MB Uint8Array
+  let runGrid = null;  // 0=not in run, 1=in run, 2=in highlighted run
+  let runDiagSet = null; // fallback: Set of packed keys
+
+  if (useFlat) {
+    runGrid = new Uint8Array(totalCells);
+    for (const run of runs) {
+      const isHighlight = (highlightRunIdx !== undefined && run.idx === highlightRunIdx);
+      const val = isHighlight ? 2 : 1;
+      if (run.gaps > 0 || run.holes > 0) {
+        for (let si = run.sourceStart; si <= run.sourceEnd; si++) {
+          const base = si * sd.linesB;
+          for (let ti = run.targetStart; ti <= run.targetEnd; ti++) {
+            const cur = runGrid[base + ti];
+            if (val > cur) runGrid[base + ti] = val;
+          }
+        }
+      } else {
+        for (let k = 0; k < run.length; k++) {
+          const idx = (run.sourceStart + k) * sd.linesB + (run.targetStart + k);
+          const cur = runGrid[idx];
+          if (val > cur) runGrid[idx] = val;
         }
       }
-    } else {
-      for (let k = 0; k < run.length; k++) {
-        const key = (run.sourceStart + k) + ',' + (run.targetStart + k);
-        runPointSet.add(key);
-        runPointToRun[key] = run;
+    }
+  } else {
+    // Fallback: only tag the diagonal/bounding-box cells via a Map
+    runDiagSet = new Map();
+    for (const run of runs) {
+      const isHighlight = (highlightRunIdx !== undefined && run.idx === highlightRunIdx);
+      const val = isHighlight ? 2 : 1;
+      if (run.gaps > 0 || run.holes > 0) {
+        for (let si = run.sourceStart; si <= run.sourceEnd; si++) {
+          for (let ti = run.targetStart; ti <= run.targetEnd; ti++) {
+            const key = si * 0x100000 + ti; // pack into single number (supports up to ~1M lines)
+            const cur = runDiagSet.get(key) || 0;
+            if (val > cur) runDiagSet.set(key, val);
+          }
+        }
+      } else {
+        for (let k = 0; k < run.length; k++) {
+          const key = (run.sourceStart + k) * 0x100000 + (run.targetStart + k);
+          const cur = runDiagSet.get(key) || 0;
+          if (val > cur) runDiagSet.set(key, val);
+        }
       }
     }
   }
 
-  // Two-pass rendering: dim non-run points, orange run points
-  sd.points.forEach(([a, b]) => {
-    const key = a + ',' + b;
-    const inRun = runPointSet.has(key);
-    const run = inRun ? runPointToRun[key] : null;
+  // Colors: dim=#3a3b4f, orange=#f59e0b, red=#ef4444
+  const colors = [
+    [58, 59, 79],    // 0: not in run (dim)
+    [245, 158, 11],  // 1: in run (orange)
+    [239, 68, 68],   // 2: highlighted run (red)
+  ];
 
-    if (inRun && highlightRunIdx !== undefined && run && run.idx === highlightRunIdx) {
-      ctx.fillStyle = '#ef4444'; // active run: red
-    } else if (inRun) {
-      ctx.fillStyle = '#f59e0b'; // run point: orange
+  // Render points
+  const points = sd.points;
+  for (let pi = 0; pi < points.length; pi++) {
+    const a = points[pi][0];
+    const b = points[pi][1];
+
+    let membership;
+    if (runGrid) {
+      membership = runGrid[a * sd.linesB + b];
+    } else if (runDiagSet) {
+      membership = runDiagSet.get(a * 0x100000 + b) || 0;
     } else {
-      ctx.fillStyle = '#3a3b4f'; // non-run: dim
+      membership = 0;
     }
-    ctx.fillRect(a * scale, b * scale, scale, scale);
-  });
+    const c = colors[membership];
+
+    // Fill scale×scale pixel block
+    const px = a * scale;
+    const py = b * scale;
+    for (let dy = 0; dy < scale; dy++) {
+      const ry = py + dy;
+      if (ry >= h) break;
+      const rowOff = ry * w * 4;
+      for (let dx = 0; dx < scale; dx++) {
+        const rx = px + dx;
+        if (rx >= w) break;
+        const off = rowOff + rx * 4;
+        buf[off] = c[0]; buf[off+1] = c[1]; buf[off+2] = c[2];
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
 }
 
 function renderScatter(fi, fj) {
   if (viewMode !== 'scatter') {
+    savedScrollLeft = wrapper.scrollLeft;
+    savedScrollTop = wrapper.scrollTop;
     history.pushState({ view: 'scatter' }, '');
   }
   viewMode = 'scatter';
@@ -982,10 +1061,11 @@ function renderScatter(fi, fj) {
   const sd = generateScatterData(fi, fj);
   scatterRuns = sd.runs || [];
 
-  // Use 2px per line minimum, up to 4px
+  // Pick scale: fit viewport, cap between 1-4px per line.
+  // Use 1px minimum so huge files don't exceed browser canvas limits.
   const maxDim = Math.max(sd.linesA, sd.linesB);
   const fitScale = Math.floor(Math.min(wrapper.clientWidth, wrapper.clientHeight) / maxDim);
-  const scale = Math.max(Math.min(fitScale, 4), 2);
+  const scale = Math.max(Math.min(fitScale, 4), 1);
   scatterScale = scale;
 
   const w = sd.linesA * scale;
@@ -996,6 +1076,10 @@ function renderScatter(fi, fj) {
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
   canvas.style.cursor = 'crosshair';
+
+  // Reset scroll for scatter view
+  wrapper.scrollLeft = 0;
+  wrapper.scrollTop = 0;
 
   // Zoom to fit, capped at 1x
   const fit = Math.min(wrapper.clientWidth / w, wrapper.clientHeight / h, 1);
@@ -1244,6 +1328,8 @@ function sortBy(mode) {
 
 function goBack() {
   renderHeatmap();
+  wrapper.scrollLeft = savedScrollLeft;
+  wrapper.scrollTop = savedScrollTop;
 }
 
 function toggleHelp() {
