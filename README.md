@@ -284,6 +284,8 @@ The report includes:
 - **Scatter plot** — a Ducasse-style dot matrix for a selected file pair. Diagonal runs indicate copied blocks; scattered dots are common boilerplate.
 - **Sidebar** — files ranked by their highest duplication percentage against any other file.
 
+Screenshots below from running `dcd --format html -i c -x deps -m 15` on the [Valkey](https://github.com/valkey-io/valkey) project:
+
 | Heatmap | Heatmap with selection | Scatter plot |
 |:---:|:---:|:---:|
 | ![Heatmap](screenshots/dcd_html_1.png) | ![Heatmap with selection](screenshots/dcd_html_2.png) | ![Scatter plot](screenshots/dcd_html_3.png) |
