@@ -223,6 +223,12 @@ func main() {
 		false,
 		"shorthand for --ignore-comments --ignore-strings",
 	)
+	flags.BoolVar(
+		&showProgress,
+		"progress",
+		false,
+		"show progress on stderr",
+	)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

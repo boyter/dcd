@@ -29,3 +29,4 @@ var ignoreComments = false
 var ignoreStrings = false
 var codeOnly = false
 var sccFilterActive = false
+var showProgress = false

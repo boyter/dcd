@@ -10,6 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"time"
+
 	"github.com/mfonda/simhash"
 )
 
@@ -25,8 +27,30 @@ func process() int64 {
 	var results []duplicateResult
 	var resultsMu sync.Mutex
 
+	var totalFiles int
+	var totalExtensions int
+	var totalLines int64
+	if showProgress {
+		for _, files := range extensionFileMap {
+			totalFiles += len(files)
+			totalExtensions++
+			for _, f := range files {
+				totalLines += int64(len(f.LineHashes))
+			}
+		}
+	}
+	var completedFiles atomic.Int64
+	var completedLines atomic.Int64
+	var progressStart time.Time
+	var lastETANanos atomic.Int64  // last displayed ETA in nanoseconds, for smoothing
+	var etaReady atomic.Bool       // whether warmup period is done
+	if showProgress {
+		progressStart = time.Now()
+	}
+
 	// loop the files for each language bucket, java,c,go
-	for _, files := range extensionFileMap {
+	var completedExtensions int
+	for ext, files := range extensionFileMap {
 		processedPairs = sync.Map{}
 		channel := make(chan duplicateFile)
 		var wg sync.WaitGroup
@@ -42,6 +66,41 @@ func process() int64 {
 						resultsMu.Lock()
 						results = append(results, fr)
 						resultsMu.Unlock()
+					}
+					if showProgress {
+						done := completedFiles.Add(1)
+						doneLines := completedLines.Add(int64(len(f.LineHashes)))
+						pct := float64(done) / float64(totalFiles) * 100
+						linePct := float64(doneLines) / float64(totalLines) * 100
+						totalElapsed := time.Since(progressStart)
+						extPct := float64(completedExtensions) / float64(totalExtensions) * 100
+
+						// Warmup: don't show numeric ETA until 5s elapsed or 2% of lines done
+						warmupDone := etaReady.Load()
+						if !warmupDone && (totalElapsed >= 5*time.Second || linePct >= 2.0) {
+							etaReady.Store(true)
+							warmupDone = true
+						}
+
+						var etaStr string
+						if !warmupDone {
+							etaStr = "calculating..."
+						} else {
+							// ETA based on line throughput, not file throughput
+							rawETA := time.Duration(float64(totalElapsed) / float64(doneLines) * float64(totalLines-doneLines))
+							// Pessimistic multiplier: 1.5x at 0%, decays to 1.0x at 100%
+							pessimism := 1.0 + 0.5*(1.0-linePct/100.0)
+							newETA := time.Duration(float64(rawETA) * pessimism)
+							// Smoothing: drops freely, increases slowly
+							prev := time.Duration(lastETANanos.Load())
+							if prev > 0 && newETA > prev {
+								newETA = prev + (newETA-prev)/5
+							}
+							lastETANanos.Store(int64(newETA))
+							etaStr = formatDuration(newETA)
+						}
+
+						fmt.Fprintf(os.Stderr, "\r\033[2K[%d/%d files %.1f%% ETA %s ext %d/%d %.1f%% .%s] %s", done, totalFiles, pct, etaStr, completedExtensions, totalExtensions, extPct, ext, f.Location)
 					}
 				}
 				wg.Done()
@@ -74,6 +133,38 @@ func process() int64 {
 		}
 		close(channel)
 		wg.Wait()
+		if showProgress {
+			completedExtensions++
+			done := completedFiles.Load()
+			doneLines := completedLines.Load()
+			pct := float64(done) / float64(totalFiles) * 100
+			linePct := float64(doneLines) / float64(totalLines) * 100
+			extPct := float64(completedExtensions) / float64(totalExtensions) * 100
+			totalElapsed := time.Since(progressStart)
+
+			var etaStr string
+			if !etaReady.Load() {
+				etaStr = "calculating..."
+			} else if doneLines > 0 && doneLines < totalLines {
+				rawETA := time.Duration(float64(totalElapsed) / float64(doneLines) * float64(totalLines-doneLines))
+				pessimism := 1.0 + 0.5*(1.0-linePct/100.0)
+				newETA := time.Duration(float64(rawETA) * pessimism)
+				prev := time.Duration(lastETANanos.Load())
+				if prev > 0 && newETA > prev {
+					newETA = prev + (newETA-prev)/5
+				}
+				lastETANanos.Store(int64(newETA))
+				etaStr = formatDuration(newETA)
+			} else {
+				etaStr = formatDuration(0)
+			}
+
+			fmt.Fprintf(os.Stderr, "\r\033[2K[%d/%d files %.1f%% ETA %s ext %d/%d %.1f%% .%s]", done, totalFiles, pct, etaStr, completedExtensions, totalExtensions, extPct, ext)
+		}
+	}
+
+	if showProgress {
+		fmt.Fprintln(os.Stderr)
 	}
 
 	if formatOutput == "html" {
