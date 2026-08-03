@@ -863,4 +863,3 @@ func TestFilterContentByScc_NoFilterRegression(t *testing.T) {
 		t.Errorf("expected at least 4 hash entries without filtering, got %d", len(result.hashEntries))
 	}
 }
-

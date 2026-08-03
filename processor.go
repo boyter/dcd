@@ -40,8 +40,8 @@ func process() int64 {
 	var completedFiles atomic.Int64
 	var completedLines atomic.Int64
 	var progressStart time.Time
-	var lastETANanos atomic.Int64  // last displayed ETA in nanoseconds, for smoothing
-	var etaReady atomic.Bool       // whether warmup period is done
+	var lastETANanos atomic.Int64 // last displayed ETA in nanoseconds, for smoothing
+	var etaReady atomic.Bool      // whether warmup period is done
 	if showProgress {
 		progressStart = time.Now()
 	}
@@ -338,12 +338,12 @@ func sharedHashCount(a, b []uint64) int {
 }
 
 // Benchmark notes: Two alternative algorithms were tested and removed.
-// 1. Flat matrix (single []bool): identical speed despite 1 alloc vs N+1 — Go's
-//    allocator handles the small slice-of-slices efficiently, no cache benefit.
-// 2. Direct hash-grouped diagonal (skip matrix): 17-19x faster for fuzz=0/gap=0
-//    but only supports that mode, and its map overhead makes it slower at small
-//    sizes (~20 lines). The current matrix approach is optimal for the general case:
-//    it supports fuzz and gap tolerance uniformly and is competitive at all sizes.
+//  1. Flat matrix (single []bool): identical speed despite 1 alloc vs N+1 — Go's
+//     allocator handles the small slice-of-slices efficiently, no cache benefit.
+//  2. Direct hash-grouped diagonal (skip matrix): 17-19x faster for fuzz=0/gap=0
+//     but only supports that mode, and its map overhead makes it slower at small
+//     sizes (~20 lines). The current matrix approach is optimal for the general case:
+//     it supports fuzz and gap tolerance uniformly and is competitive at all sizes.
 func identifyDuplicates(f duplicateFile, c duplicateFile, sameFile bool, fuzz uint8) [][]bool {
 	// comparison actually starts here
 	outer := make([][]bool, len(f.LineHashes))
@@ -414,10 +414,10 @@ func reduceSimhash(hash uint64) uint64 {
 // some copied code. The algorithm to check this is to look for any
 // positive match, then if found check to the right
 //
-// 3. Per-diagonal scanning (walk each diagonal once instead of re-scanning from
-//    every true cell): only 1.65x faster on multi-diagonal case, but 1.1-2.6x
-//    slower on single-diagonal and sparse matrices due to poor cache locality
-//    (diagonal vs row-by-row access) and overhead of walking empty diagonals.
+//  3. Per-diagonal scanning (walk each diagonal once instead of re-scanning from
+//     every true cell): only 1.65x faster on multi-diagonal case, but 1.1-2.6x
+//     slower on single-diagonal and sparse matrices due to poor cache locality
+//     (diagonal vs row-by-row access) and overhead of walking empty diagonals.
 func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 	var matches []duplicateMatch
 
@@ -540,4 +540,3 @@ func identifyDuplicateRuns(outer [][]bool) []duplicateMatch {
 
 	return matches
 }
-

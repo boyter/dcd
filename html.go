@@ -41,13 +41,13 @@ type htmlPair struct {
 }
 
 type htmlPayload struct {
-	Project   string                `json:"project"`
-	Generated string                `json:"generated"`
-	Files     []htmlFile            `json:"files"`
-	Pairs     []htmlPair            `json:"pairs"`
-	Hashes    map[string][]uint64   `json:"hashes,omitempty"`
-	Fuzz      uint8                 `json:"fuzz,omitempty"`
-	Summary   htmlSummary           `json:"summary"`
+	Project   string              `json:"project"`
+	Generated string              `json:"generated"`
+	Files     []htmlFile          `json:"files"`
+	Pairs     []htmlPair          `json:"pairs"`
+	Hashes    map[string][]uint64 `json:"hashes,omitempty"`
+	Fuzz      uint8               `json:"fuzz,omitempty"`
+	Summary   htmlSummary         `json:"summary"`
 }
 
 type htmlSummary struct {
